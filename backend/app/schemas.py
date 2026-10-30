@@ -89,11 +89,17 @@ class ExtractPart(BaseModel):
     follow_up_questions: list[FollowUpQuestion] = Field(default_factory=list)
 
 
+class PhotoQuestion(BaseModel):
+    # English only. Asked for Luganda as well, E2B looped ("nnyo nnyo nnyo ...") or drifted into
+    # Kinyarwanda, so the family writes the Luganda wording themselves.
+    english: str
+
+
 class PhotoPart(BaseModel):
     """What Gemma sees in an old family photo. It describes; the family says who is in it."""
 
     description: str
-    questions: list[FollowUpQuestion] = Field(default_factory=list)
+    questions: list[PhotoQuestion] = Field(default_factory=list)
 
 
 # Hard limits so a small model cannot loop forever ("ekyera ekyera ekyera ..."). Ollama turns

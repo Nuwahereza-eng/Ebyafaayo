@@ -122,3 +122,21 @@ def remove_names(description: str, names: list[str]) -> tuple[str, list[str]]:
         else:
             kept.append(sentence)
     return " ".join(kept), notes
+
+
+LOOP = re.compile(r"\b(\w+)(?:\W+\1\b){2,}", re.IGNORECASE)  # the same word three times in a row
+
+
+def clean_questions(questions: list[dict]) -> tuple[list[dict], list[str]]:
+    """Drop repeated questions, and blank out a Luganda question where Gemma got stuck in a loop."""
+    seen, kept, notes = set(), [], []
+    for q in questions:
+        key = normalize(q.get("english", ""))
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        if LOOP.search(q.get("luganda", "")):
+            q = {**q, "luganda": ""}
+            notes.append(f"Gemma's Luganda for \"{q['english']}\" repeated itself, so it was removed. Please write it yourselves.")
+        kept.append(q)
+    return kept, notes

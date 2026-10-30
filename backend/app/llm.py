@@ -3,12 +3,15 @@
 import base64
 import json
 import os
+import tempfile
+from pathlib import Path
 import time
 from typing import Callable, Optional
 
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from .audio import to_rgb_jpeg
 from .config import GEMMA_CTX, GEMMA_MODEL, LANGUAGES, OLLAMA_URL, PROMPTS_DIR
 from .schemas import ExtractPart, PhotoPart, StructuredMemory, TextPart, gemma_json_schema
 
@@ -41,7 +44,10 @@ MAX_OUTPUT_TOKENS = int(os.environ.get("EBYAFAAYO_MAX_TOKENS", 3000))
 
 
 def chat(
-    prompt: str, schema: dict, on_progress: Optional[Callable[[int], None]] = None, images: Optional[list[str]] = None
+    prompt: str,
+    schema: dict,
+    on_progress: Optional[Callable[[int], None]] = None,
+    images: Optional[list[str]] = None,
 ) -> str:
     """Stream one JSON answer from Gemma. `on_progress` gets the number of characters so far.
     `images` are file paths; Gemma 4 reads them alongside the prompt."""
@@ -132,9 +138,14 @@ def structure_transcript(
 
 
 def describe_photo(
-    image_path: str, person: str, on_chars: Optional[Callable[[int], None]] = None
+    image_path: str, on_chars: Optional[Callable[[int], None]] = None
 ) -> tuple[PhotoPart, dict]:
     """Gemma looks at an old family photo: what can be seen, and questions to ask about it."""
     started = time.time()
-    part, retried = _ask("describe_photo.md", PhotoPart, {"person": person}, on_chars, images=[image_path])
+    with tempfile.TemporaryDirectory() as tmp:
+        view = Path(tmp) / "photo.jpg"
+        to_rgb_jpeg(Path(image_path), view)
+        # The prompt is short and neutral on purpose: a longer one about a family, gomesi and
+        # kanzu made Gemma "see" people in a photo of an empty room.
+        part, retried = _ask("describe_photo.md", PhotoPart, {}, on_chars, images=[str(view)])
     return part, {"model": GEMMA_MODEL, "retried": retried, "seconds": round(time.time() - started, 1)}

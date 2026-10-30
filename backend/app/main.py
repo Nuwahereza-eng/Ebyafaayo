@@ -1,5 +1,6 @@
 """Ebyafaayo API. Runs on localhost only; makes no requests outside this laptop."""
 
+import logging
 import re
 import shutil
 import uuid
@@ -33,7 +34,7 @@ async def startup() -> None:
     # Jobs Temporal is still running carry on where they stopped; others are marked for a retry.
     resumed = await durable.recover()
     if resumed:
-        print(f"Resuming {len(resumed)} job(s) with Temporal: {', '.join(resumed)}")
+        logging.getLogger("uvicorn.error").info("Resuming %d job(s) with Temporal: %s", len(resumed), ", ".join(resumed))
 
 
 @app.on_event("shutdown")

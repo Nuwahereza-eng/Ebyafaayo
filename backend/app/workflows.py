@@ -47,7 +47,7 @@ class TranscribeStory:
             for i in range(total):
                 texts.append(
                     await workflow.execute_activity(
-                        "transcribe_piece", args=[recording_id, i, total], **_steps(retry_seconds, 30, heartbeat_minutes=5)
+                        "transcribe_piece", args=[recording_id, i, total], **_steps(retry_seconds, 30, heartbeat_minutes=1)
                     )
                 )
             await workflow.execute_activity("finish_transcription", args=[recording_id, texts], **_steps(retry_seconds, 5))
@@ -62,7 +62,7 @@ class WriteMemory:
 
     @workflow.run
     async def run(self, memory_id: int, retry_seconds: int = 15) -> str:
-        gemma = _steps(retry_seconds, 30, heartbeat_minutes=5)
+        gemma = _steps(retry_seconds, 30, heartbeat_minutes=1)
         try:
             story = await workflow.execute_activity("gemma_write_story", memory_id, **gemma)
             details = await workflow.execute_activity("gemma_find_details", args=[memory_id, len(str(story["part"]))], **gemma)
@@ -79,7 +79,7 @@ class DescribePhoto:
     @workflow.run
     async def run(self, photo_id: int, retry_seconds: int = 15) -> str:
         try:
-            await workflow.execute_activity("gemma_describe_photo", photo_id, **_steps(retry_seconds, 30, heartbeat_minutes=5))
+            await workflow.execute_activity("gemma_describe_photo", photo_id, **_steps(retry_seconds, 30, heartbeat_minutes=1))
             return "ready"
         except ActivityError as e:
             return await _fail("photo", photo_id, e, retry_seconds)

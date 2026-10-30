@@ -72,3 +72,17 @@ def test_photo_description_keeps_ordinary_words_that_are_also_names():
 
     text, notes = remove_names("A faded photo of a woman holding a rose.", ["Rose Nalwoga", "Photo Test"])
     assert text == "A faded photo of a woman holding a rose." and notes == []
+
+
+def test_looping_luganda_and_repeated_questions_are_cleaned():
+    from app.grounding import clean_questions
+
+    qs = [
+        {"luganda": "Jjajja, oba nnyo nnyo nnyo nnyo", "english": "Who is this?"},
+        {"luganda": "Jjajja, ani ono?", "english": "Who is this?"},
+        {"luganda": "Jjajja, kino kyakubibwa ddi?", "english": "When was this taken?"},
+    ]
+    kept, notes = clean_questions(qs)
+    assert [q["english"] for q in kept] == ["Who is this?", "When was this taken?"]
+    assert kept[0]["luganda"] == "" and len(notes) == 1
+    assert kept[1]["luganda"] == "Jjajja, kino kyakubibwa ddi?"

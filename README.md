@@ -56,6 +56,10 @@ These use a short **sample** story written for testing, not a real family's stor
 |---|---|
 | ![Memory book](docs/screenshots/book.png) | ![Memory editor on a phone](docs/screenshots/memory-mobile.png) |
 
+| Old photos: Gemma describes, the family names (test photos: Wikimedia Commons, public domain) | Temporal history after the app was killed half way: step 2 on attempt 2, step 1 kept |
+|---|---|
+| ![Old photos](docs/screenshots/photos.png) | ![Temporal event history](docs/screenshots/temporal-history.png) |
+
 ## How it works
 
 ```mermaid
@@ -76,7 +80,7 @@ flowchart LR
 - **Speech to text:** `Sunbird/asr-whisper-large-v3-salt`, converted once to CTranslate2 int8 (`scripts/convert_asr.py`) and run with faster-whisper. Long recordings are cut into pieces of at most 30 seconds, at the quietest moment near each cut. The language token comes from the Sunbird model card (Luganda = token 50355); the conversion script maps it through the model's own tokenizer.
 - **Structuring:** Gemma 4 through Ollama's local HTTP API, in two focused calls: one writes the clean Luganda and the English translation ([`structure_text.md`](backend/prompts/structure_text.md)), the other notes the people, places, times, proverbs, clan, totem and follow-up questions ([`structure_extract.md`](backend/prompts/structure_extract.md)). When we asked Gemma E2B for everything in one call, it sometimes returned every list empty. Each call uses Ollama structured outputs: a JSON schema generated from the Pydantic model, with every field required and a maximum length for every string and list, so a looping model cannot write forever. Pydantic validates the result, with one "fix this JSON" retry.
 - **Grounding check** ([`backend/app/grounding.py`](backend/app/grounding.py)): every person, place, time, proverb, clan and totem must quote a sentence that is really in the transcript, and names must actually appear in it. Matching quotes are replaced with the exact transcript sentence, unmatched items are marked "unclear" and highlighted, and an unmatched clan or totem is dropped.
-- **Photos** ([`describe_photo.md`](backend/prompts/describe_photo.md)): Gemma 4 E2B reads the image through Ollama and fills a small schema: a description and 3 to 5 questions. It is told never to say who anyone is. As a safety net, the app removes any sentence of the description that contains the name of someone the family knows (an elder, or anyone named in their stories), and tells the family it did so.
+- **Photos** ([`describe_photo.md`](backend/prompts/describe_photo.md)): each photo is converted to a colour JPEG (old scans are often one-channel greyscale) and Gemma 4 E2B reads it through Ollama, filling a small schema: a description and 3 to 5 questions in English. It is told never to say who anyone is. The prompt is short and neutral on purpose: a longer one about a Ugandan family, gomesi and kanzu made Gemma describe "at least four people" in a photo of an empty room. Asked for Luganda questions, E2B looped or drifted into Kinyarwanda, so the family writes the Luganda. As a safety net, the app removes any sentence of the description that contains the name of someone the family knows (an elder, or anyone named in their stories), and tells the family it did so.
 - **Durable jobs** ([`workflows.py`](backend/app/workflows.py), [`durable.py`](backend/app/durable.py)): each job is a Temporal workflow made of small steps (activities). Transcription is one step per 30-second piece; a memory is "Gemma writes the story", "Gemma finds the details", "check and save". Temporal records each finished step, so after a crash only the unfinished step runs again, and a failed step is retried up to five times over about four minutes (time for Ollama to restart if it was killed) before the family is told. The worker runs inside the app; the server is `temporal server start-dev` with its history in `data/temporal.db`, all on the laptop. If no Temporal server is running, the same steps run in a background thread, and an interrupted job is marked failed for the family to retry.
 - **One heavy job at a time:** an 8 GB laptop cannot hold both models, so the worker runs one step at a time, unloads Gemma before transcribing and drops the speech model afterwards.
 
@@ -127,6 +131,8 @@ The Sunbird speech model needs about 1.5 GB of RAM in int8.
 | Step | Time | Notes |
 |---|---|---|
 | Gemma 4 E2B structuring, ~450-character story (8 sentences) | **170–235 s** | Two calls: about 70 s for the clean Luganda + English, the rest for extraction. Includes loading Gemma (about 25 s) the first time. |
+| Gemma 4 E2B describing a photo | **54–83 s** | Includes a description and 4 questions. |
+| Crash recovery with Temporal | **45 s** from `kill -9` to the unfinished step running again | Measured with the app restarted 11 s after the kill. Finished steps are not repeated. |
 | Sunbird ASR transcription | _not measured yet_ | Needs the Hugging Face login and more free disk space first. |
 
 Gemma's time grows with the length of the story, so a 3-minute story will take several minutes. The app shows progress and you can leave the page and come back.

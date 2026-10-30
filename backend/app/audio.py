@@ -20,3 +20,17 @@ def duration_seconds(path: Path) -> float:
         text=True,
     )
     return float(json.loads(out.stdout)["format"]["duration"])
+
+
+def to_rgb_jpeg(src: Path, dst: Path, max_side: int = 1024) -> None:
+    """A colour JPEG of at most `max_side` pixels, for Gemma to look at.
+
+    Old photos are often scanned as one-channel greyscale JPEGs; Gemma described an empty room
+    in one of those as "at least four people". The same photo as a normal colour JPEG reads fine.
+    """
+    scale = f"scale='min({max_side},iw)':'min({max_side},ih)':force_original_aspect_ratio=decrease"
+    subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-vf", f"{scale},format=rgb24", "-frames:v", "1", "-q:v", "3", str(dst)],
+        check=True,
+        capture_output=True,
+    )

@@ -21,7 +21,7 @@ from sqlmodel import Session, select
 from . import asr, llm
 from .config import AUDIO_DIR
 from .db import Memory, Person, Photo, Recording, engine, now
-from .grounding import ground, remove_names, similarity
+from .grounding import clean_questions, ground, remove_names, similarity
 from .schemas import ExtractPart, StructuredMemory, TextPart
 
 executor = ThreadPoolExecutor(max_workers=1)
@@ -128,7 +128,8 @@ def check_and_save_memory(memory_id: int, story: dict, details: dict) -> None:
     structured = StructuredMemory(**TextPart(**story["part"]).model_dump(), **ExtractPart(**details["part"]).model_dump())
     structured, notes = ground(structured, transcript)
     data = structured.model_dump()
-    data["notes"] = notes
+    data["follow_up_questions"], question_notes = clean_questions(data["follow_up_questions"])
+    data["notes"] = notes + question_notes
     data["luganda_similarity"] = similarity(structured.luganda_text, transcript)
     data["retried"] = story["retried"] or details["retried"]
     _update(Memory, memory_id, status="draft", title=structured.title, data=data, model=llm.GEMMA_MODEL,
@@ -147,10 +148,11 @@ def gemma_describe_photo(photo_id: int, beat: Beat = None) -> None:
         for m in s.exec(select(Memory).where(Memory.person_id == person.id)):
             known += [p["name"] for p in (m.data or {}).get("people", [])]
     _update(Photo, photo_id, status="describing", error="", progress_chars=0)
-    part, meta = llm.describe_photo(path, name, _progress(Photo, photo_id, 0, beat))
+    part, meta = llm.describe_photo(path, _progress(Photo, photo_id, 0, beat))
     description, notes = remove_names(part.description, known)
-    _update(Photo, photo_id, status="ready", description=description, notes=notes,
-            questions=[q.model_dump() for q in part.questions], model=meta["model"], generation_seconds=meta["seconds"])
+    questions, question_notes = clean_questions([{**q.model_dump(), "luganda": "", "answered": False} for q in part.questions])
+    _update(Photo, photo_id, status="ready", description=description, notes=notes + question_notes,
+            questions=questions, model=meta["model"], generation_seconds=meta["seconds"])
 
 
 # ---------- running the steps without Temporal ----------

@@ -61,7 +61,7 @@ def canned_gemma(monkeypatch):
     extract = ExtractPart(people=[{"name": "Kizito", "relationship_to_speaker": "father",
                                    "source_sentence": "Taata wange yali Kizito.", "confidence": "clear"}])
     photo = PhotoPart(description="A black-and-white photo of two men in suits. The man on the left is Kizito, the father.",
-                      questions=[{"luganda": "Jjajja, ani ono?", "english": "Grandparent, who is this?"}])
+                      questions=[{"english": "Grandparent, who is this?"}])
     monkeypatch.setattr(llm, "ollama_status", lambda: {"model_ready": True})
     monkeypatch.setattr(llm, "write_story", lambda *a, **k: (text, False))
     monkeypatch.setattr(llm, "find_details", lambda *a, **k: (extract, False))

@@ -23,18 +23,21 @@ function PhotoCard({ photo: initial, onChanged }: { photo: FamilyPhoto; onChange
   const [photo, setPhoto] = useState(initial)
   const [caption, setCaption] = useState(initial.caption)
   const [description, setDescription] = useState(initial.description)
+  const [questions, setQuestions] = useState(initial.questions)
   const [error, setError] = useState('')
-  const dirty = caption !== photo.caption || description !== photo.description
+  const dirty =
+    caption !== photo.caption || description !== photo.description || JSON.stringify(questions) !== JSON.stringify(photo.questions)
 
   usePoll(() => {
     api.familyPhoto(photo.id).then((p) => {
       setPhoto(p)
       setDescription(p.description)
+      setQuestions(p.questions)
     })
   }, photo.status === 'describing')
 
   const save = () =>
-    api.updateFamilyPhoto(photo.id, { caption, description, questions: photo.questions })
+    api.updateFamilyPhoto(photo.id, { caption, description, questions })
       .then(setPhoto)
       .catch((e) => setError(e.message))
 
@@ -81,13 +84,17 @@ function PhotoCard({ photo: initial, onChanged }: { photo: FamilyPhoto; onChange
               {photo.notes.map((n, i) => (
                 <Alert key={i} severity="info">{n}</Alert>
               ))}
-              {photo.questions.length > 0 && (
+              {questions.length > 0 && (
                 <Box>
-                  <Typography variant="subtitle2" gutterBottom>Ask about this photo</Typography>
-                  {photo.questions.map((q, i) => (
-                    <Box key={i} sx={{ mb: 1 }}>
-                      <Typography sx={{ fontFamily: SERIF }}>{q.luganda}</Typography>
-                      <Typography variant="body2" color="text.secondary">{q.english}</Typography>
+                  <Typography variant="subtitle2">Ask about this photo</Typography>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Gemma suggests the questions in English. Write them the way you would ask jjajja.
+                  </Typography>
+                  {questions.map((q, i) => (
+                    <Box key={i} sx={{ mb: 1.5 }}>
+                      <Typography sx={{ fontFamily: SERIF }}>{q.english}</Typography>
+                      <TextField size="small" variant="standard" fullWidth placeholder="In Luganda…" value={q.luganda}
+                        onChange={(e) => setQuestions(questions.map((x, j) => (j === i ? { ...x, luganda: e.target.value } : x)))} />
                     </Box>
                   ))}
                 </Box>

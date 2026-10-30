@@ -6,7 +6,10 @@ in the same process. If no server is running, jobs fall back to a plain backgrou
 """
 
 import asyncio
+import contextvars
+import functools
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
@@ -38,12 +41,38 @@ def _beat() -> None:
     activity.heartbeat()
 
 
+def keep_alive(fn):
+    """Heartbeat every 20 seconds while a step runs, even while Gemma is still loading.
+
+    The heartbeat says "this worker is alive". When the app is killed, the beats stop, and
+    Temporal hands the step to the restarted app after the heartbeat timeout (1 minute).
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args):
+        done = threading.Event()
+        ctx = contextvars.copy_context()  # the activity's context, for the helper thread
+
+        def beat() -> None:
+            while not done.wait(20):
+                ctx.run(activity.heartbeat)
+
+        threading.Thread(target=beat, daemon=True).start()
+        try:
+            return fn(*args)
+        finally:
+            done.set()
+
+    return wrapper
+
+
 @activity.defn(name="prepare_transcription")
 def prepare_transcription(recording_id: int) -> int:
     return jobs.prepare_transcription(recording_id)
 
 
 @activity.defn(name="transcribe_piece")
+@keep_alive
 def transcribe_piece(recording_id: int, index: int, total: int) -> str:
     return jobs.transcribe_piece(recording_id, index, total, beat=_beat)
 
@@ -54,11 +83,13 @@ def finish_transcription(recording_id: int, texts: list[str]) -> None:
 
 
 @activity.defn(name="gemma_write_story")
+@keep_alive
 def gemma_write_story(memory_id: int) -> dict:
     return jobs.gemma_write_story(memory_id, beat=_beat)
 
 
 @activity.defn(name="gemma_find_details")
+@keep_alive
 def gemma_find_details(memory_id: int, done_chars: int) -> dict:
     return jobs.gemma_find_details(memory_id, done_chars, beat=_beat)
 
@@ -69,6 +100,7 @@ def check_and_save_memory(memory_id: int, story: dict, details: dict) -> None:
 
 
 @activity.defn(name="gemma_describe_photo")
+@keep_alive
 def gemma_describe_photo(photo_id: int) -> None:
     jobs.gemma_describe_photo(photo_id, beat=_beat)
 
