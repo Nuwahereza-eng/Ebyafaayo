@@ -365,15 +365,19 @@ export default function MemoryPage() {
       </Card>
 
       {error && <Alert severity="error">{error}</Alert>}
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ position: 'sticky', bottom: 16 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        sx={{ position: 'sticky', bottom: 0, py: 2, bgcolor: 'background.default', borderTop: 1, borderColor: 'divider', zIndex: 2 }}
+      >
         <Button variant="contained" color="secondary" size="large" onClick={() => save(true)} disabled={busy}
           startIcon={busy ? <CircularProgress size={18} color="inherit" /> : undefined}>
           Save to {memory.person.name}'s remembrance page
         </Button>
-        <Button variant="outlined" onClick={() => save(false)} disabled={busy} sx={{ bgcolor: 'background.paper' }}>
+        <Button variant="outlined" onClick={() => save(false)} disabled={busy}>
           Save draft
         </Button>
-        <Button onClick={regenerate} disabled={busy} sx={{ bgcolor: 'background.paper' }}>
+        <Button onClick={regenerate} disabled={busy}>
           Ask Gemma again
         </Button>
       </Stack>

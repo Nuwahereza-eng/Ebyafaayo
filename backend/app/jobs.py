@@ -15,9 +15,9 @@ from .grounding import ground, similarity
 executor = ThreadPoolExecutor(max_workers=1)
 
 
-def _update(model, id_: int, **fields) -> None:
+def _update(table, id_: int, **fields) -> None:
     with Session(engine) as s:
-        obj = s.get(model, id_)
+        obj = s.get(table, id_)
         for k, v in fields.items():
             setattr(obj, k, v)
         s.add(obj)

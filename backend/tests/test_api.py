@@ -50,3 +50,22 @@ def test_family_can_type_transcript(client, tone):
     r = client.patch(f"/api/recordings/{rec['id']}/transcript", json={"transcript": "Nze Jjajja."})
     assert r.json()["transcript"] == "Nze Jjajja."
     assert r.json()["transcript_reviewed"] is True
+
+
+def test_structuring_job_saves_gemma_result(client, tone, monkeypatch):
+    """Runs the background job with Gemma replaced by a canned answer."""
+    from app import jobs, llm
+    from app.schemas import StructuredMemory
+
+    rec = upload(client, tone, True, name="Job Test").json()
+    client.patch(f"/api/recordings/{rec['id']}/transcript", json={"transcript": "Taata wange yali Kizito."})
+    canned = StructuredMemory(title="T", luganda_text="Taata wange yali Kizito.", english_text="My father was Kizito.",
+        people=[{"name": "Kizito", "relationship_to_speaker": "father", "source_sentence": "Taata wange yali Kizito.", "confidence": "clear"}])
+    monkeypatch.setattr(llm, "ollama_status", lambda: {"model_ready": True})
+    monkeypatch.setattr(llm, "structure_transcript", lambda *a, **k: (canned, {"model": "test", "retried": False, "seconds": 1}))
+    monkeypatch.setattr(jobs, "submit", lambda fn, *args: fn(*args))
+    mem = client.post(f"/api/recordings/{rec['id']}/structure").json()
+    got = client.get(f"/api/memories/{mem['id']}").json()
+    assert got["status"] == "draft", got["error"]
+    assert got["model"] == "test"
+    assert got["data"]["people"][0]["grounded"] is True

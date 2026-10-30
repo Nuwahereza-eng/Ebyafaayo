@@ -33,3 +33,17 @@ Unit tests cover an invented uncle and an invented clan.
 **Consent.** A recording cannot be created without the consent checkbox and the name of the family member who asked. The exact consent text is stored with the recording. Tested.
 
 **Fallback.** If the speech model is not installed, the family can listen and type the transcript. The rest of the flow works the same.
+
+**Two crashes, one cause.** Ollama had been started from inside VS Code's process group, so when memory ran out, the system killed that whole group, editor included. Ollama now runs as its own temporary systemd user service with a memory cap (`systemd-run --user -p MemoryMax=4800M ...`). If it runs out, only Ollama stops.
+
+**First real Gemma result (sample story, one call, 210 s).** The Luganda was kept exactly and no clan was invented. But the translation had serious errors ("ku kyoto", by the fireplace, became "in Kyoto"; "mulimi wa mmwanyi", coffee farmer, became "water carrier"), every relationship was left empty, no places were listed, and `changes_made` was full of entries that changed nothing.
+
+**Second try (better prompt).** We added a kinship glossary to the prompt, as vocabulary help rather than facts, an explicit rule to list places, and a filter for no-op changes. The translation improved a lot, but this time Gemma returned *every* list empty.
+
+**Decision: two focused calls, with every field required.** One call writes the text and translation; the other extracts. Now it found all four people with correct relationships, all three places, both times and the proverb. Everything matched the transcript, in 170–235 s.
+
+**A runaway loop.** In the app, the extraction call once looped for 8+ minutes ("ekyera ekyera ekyera ..."). The fix was a `maxLength` on every string and a `maxItems` on every list in the JSON schema, which Ollama enforces while Gemma writes, plus a `num_predict` cap. The next run finished in 170 s.
+
+**Honest limits found in testing.** E2B's translation once turned "I met my husband" into "my husband was killed", and it never got the proverb's meaning right. The grounding check cannot catch translation errors, so the README says so plainly and the UI asks for a bilingual check.
+
+**Gemma audio test: cut.** Gemma 4 E2B in Ollama has no audio input, and testing it through transformers needs another ~10 GB download that this laptop cannot hold.

@@ -1,6 +1,7 @@
 """Gemma 4 through the local Ollama HTTP API."""
 
 import json
+import os
 import time
 from typing import Callable, Optional
 
@@ -34,6 +35,10 @@ def unload() -> None:
         pass
 
 
+# A safety net on top of the schema limits: no answer needs more than this.
+MAX_OUTPUT_TOKENS = int(os.environ.get("EBYAFAAYO_MAX_TOKENS", 3000))
+
+
 def chat(prompt: str, schema: dict, on_progress: Optional[Callable[[int], None]] = None) -> str:
     """Stream one JSON answer from Gemma. `on_progress` gets the number of characters so far."""
     body = {
@@ -43,7 +48,7 @@ def chat(prompt: str, schema: dict, on_progress: Optional[Callable[[int], None]]
         "stream": True,
         "think": False,
         "keep_alive": "5m",
-        "options": {"temperature": 0.2, "num_ctx": GEMMA_CTX},
+        "options": {"temperature": 0.2, "num_ctx": GEMMA_CTX, "num_predict": MAX_OUTPUT_TOKENS},
     }
     out: list[str] = []
     count = 0
@@ -66,7 +71,7 @@ def chat(prompt: str, schema: dict, on_progress: Optional[Callable[[int], None]]
 
 def _ask(prompt_file: str, model: type[BaseModel], fields: dict, on_chars: Callable[[int], None]) -> tuple[BaseModel, bool]:
     """One Gemma call that must return `model`. Retries once with a fix-the-JSON call."""
-    schema = gemma_json_schema(model)
+    schema = gemma_json_schema(model, transcript_chars=len(fields["transcript"]))
     raw = chat(load_prompt(prompt_file).format(**fields), schema, on_chars)
     try:
         return model.model_validate_json(raw), False

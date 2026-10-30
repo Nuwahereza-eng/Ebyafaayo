@@ -89,7 +89,24 @@ class ExtractPart(BaseModel):
     follow_up_questions: list[FollowUpQuestion] = Field(default_factory=list)
 
 
-def gemma_json_schema(model: type[BaseModel] = StructuredMemory) -> dict:
+# Hard limits so a small model cannot loop forever ("ekyera ekyera ekyera ..."). Ollama turns
+# maxLength / maxItems into its decoding grammar, so these are enforced while Gemma writes.
+MAX_ITEMS = {"people": 30, "places": 25, "time_periods": 20, "proverbs": 10, "follow_up_questions": 5, "changes_made": 40}
+SHORT_TEXT = 300  # names, sentences, questions
+
+
+def _limit_strings(node, max_len: int) -> None:
+    if isinstance(node, dict):
+        if node.get("type") == "string":
+            node.setdefault("maxLength", max_len)
+        for v in node.values():
+            _limit_strings(v, max_len)
+    elif isinstance(node, list):
+        for v in node:
+            _limit_strings(v, max_len)
+
+
+def gemma_json_schema(model: type[BaseModel] = StructuredMemory, transcript_chars: int = 4000) -> dict:
     """Schema sent to Ollama's structured-output `format`, without our own bookkeeping fields."""
     schema = model.model_json_schema()
     for d in [schema, *schema.get("$defs", {}).values()]:
@@ -97,4 +114,15 @@ def gemma_json_schema(model: type[BaseModel] = StructuredMemory) -> dict:
         props.pop("grounded", None)
         props.pop("answered", None)
         d["required"] = list(props)  # make Gemma write every field, even if only [] or null
+    props = schema["properties"]
+    for name, limit in MAX_ITEMS.items():
+        if name in props:
+            props[name]["maxItems"] = limit
+    long_text = int(transcript_chars * 1.6) + 200  # the story itself, in Luganda or English
+    for name in ("luganda_text", "english_text"):
+        if name in props:
+            props[name]["maxLength"] = long_text
+    if "title" in props:
+        props["title"]["maxLength"] = 120
+    _limit_strings(schema, SHORT_TEXT)
     return schema
