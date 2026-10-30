@@ -10,7 +10,21 @@ Built for the DEV Hacktoberfest Open-Source AI Challenge, Week 4: "Ghost in the 
 
 ## The story behind it
 
-> _TODO (Peter): why this matters to you and your family._
+Ask a young person in Kampala today what their clan is, and many will pause. Ask about their totem, the taboos their family keeps, or the names of their great-grandparents, and the pause gets longer.
+
+I see it in my own generation. We grew up with phones, school and the city, and somewhere along the way we stopped sitting with our grandparents in the evening to listen. The knowledge did not disappear because it was unimportant. It disappeared because nobody wrote it down. In our culture, history lives in the voices of our jjajjas: who our people were, where they came from, which clan we belong to, what we must never eat, why a child is given a certain name, the proverbs that taught right from wrong.
+
+Every time an elder passes on, a whole library closes, and most of those libraries were never written down.
+
+That is why I built Ebyafaayo, which means "history" in Luganda. It lets a family sit with jjajja omusajja or jjajja omukazi, press record, and keep their stories in their own words, in Luganda, for the generations that come after us. Everything stays on the family's own laptop.
+
+1. The family asks the elder for consent and records the story.
+2. An open Luganda speech model transcribes it.
+3. The family checks and corrects the transcript.
+4. Gemma 4, running locally, turns it into a memory: the story in Luganda and English, the people and places mentioned, the clan and totem if the elder named them, proverbs, and gentle questions to ask next time.
+5. Each elder gets a remembrance page, and the family can print a memory book.
+
+Gemma is only allowed to use what the elder actually said. Every name, place and relationship links back to the sentence it came from, and anything unclear stays marked as unclear. A family's history is not something an AI should guess.
 
 ## What it does
 
