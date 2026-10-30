@@ -42,3 +42,18 @@ def test_guessed_clan_is_removed():
 def test_unclear_clan_value_is_dropped():
     m, _ = ground(memory(totem={"value": "unclear", "source_sentence": ""}), TRANSCRIPT)
     assert m.totem is None
+
+
+def test_no_op_changes_are_dropped():
+    m, _ = ground(memory(changes_made=[{"original": "Nze.", "corrected": "Nze.", "reason": "none"},
+                                       {"original": "mmwanyi", "corrected": "mmwaanyi", "reason": "spelling"}]), TRANSCRIPT)
+    assert [c.original for c in m.changes_made] == ["mmwanyi"]
+
+
+def test_sentences_split_after_closing_quote():
+    from app.grounding import split_sentences
+
+    assert split_sentences('Taata yagamba nti, "Agali awamu." Mu biseera bya Amin twadduka.') == [
+        'Taata yagamba nti, "Agali awamu."',
+        "Mu biseera bya Amin twadduka.",
+    ]

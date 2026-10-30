@@ -21,7 +21,7 @@ def normalize(text: str) -> str:
 
 
 def split_sentences(transcript: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?])\s+|\n+", transcript)
+    parts = re.split(r"(?<=[.!?])\s+|(?<=[.!?][\"”’'])\s+|\n+", transcript)
     return [p.strip() for p in parts if p.strip()]
 
 
@@ -61,6 +61,7 @@ class Grounder:
 def ground(memory: StructuredMemory, transcript: str) -> tuple[StructuredMemory, list[str]]:
     g = Grounder(transcript)
     notes: list[str] = []
+    memory.changes_made = [c for c in memory.changes_made if normalize(c.original) != normalize(c.corrected)]
 
     def check(item, name: str | None = None) -> None:
         sentence = g.find(item.source_sentence)

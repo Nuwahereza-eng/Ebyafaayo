@@ -5,10 +5,10 @@ import time
 from typing import Callable, Optional
 
 import httpx
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from .config import GEMMA_CTX, GEMMA_MODEL, LANGUAGES, OLLAMA_URL, PROMPTS_DIR
-from .schemas import StructuredMemory, gemma_json_schema
+from .schemas import ExtractPart, StructuredMemory, TextPart, gemma_json_schema
 
 TIMEOUT = httpx.Timeout(connect=10, read=1800, write=60, pool=10)
 
@@ -64,23 +64,37 @@ def chat(prompt: str, schema: dict, on_progress: Optional[Callable[[int], None]]
     return "".join(out)
 
 
+def _ask(prompt_file: str, model: type[BaseModel], fields: dict, on_chars: Callable[[int], None]) -> tuple[BaseModel, bool]:
+    """One Gemma call that must return `model`. Retries once with a fix-the-JSON call."""
+    schema = gemma_json_schema(model)
+    raw = chat(load_prompt(prompt_file).format(**fields), schema, on_chars)
+    try:
+        return model.model_validate_json(raw), False
+    except ValidationError as e:
+        fix = load_prompt("fix_json.md").format(error=str(e)[:2000], bad_json=raw)
+        raw = chat(fix, schema, on_chars)
+        return model.model_validate_json(raw), True  # a second failure propagates
+
+
 def structure_transcript(
     transcript: str, speaker: str, language: str = "lug", on_progress: Optional[Callable[[int], None]] = None
 ) -> tuple[StructuredMemory, dict]:
-    """Turn a corrected transcript into a StructuredMemory. Retries once with a fix-the-JSON call."""
-    schema = gemma_json_schema()
-    prompt = load_prompt("structure.md").format(
-        language=LANGUAGES.get(language, language), speaker=speaker, transcript=transcript.strip()
-    )
+    """Turn a corrected transcript into a StructuredMemory.
+
+    Two focused calls work better than one big one with a small model: the first writes the
+    clean Luganda and the English translation, the second notes people, places, times and so on.
+    """
+    fields = {"language": LANGUAGES.get(language, language), "speaker": speaker, "transcript": transcript.strip()}
     started = time.time()
-    raw = chat(prompt, schema, on_progress)
-    meta = {"model": GEMMA_MODEL, "retried": False}
-    try:
-        memory = StructuredMemory.model_validate_json(raw)
-    except ValidationError as e:
-        meta["retried"] = True
-        fix = load_prompt("fix_json.md").format(error=str(e)[:2000], bad_json=raw)
-        raw = chat(fix, schema, on_progress)
-        memory = StructuredMemory.model_validate_json(raw)  # second failure propagates
-    meta["seconds"] = round(time.time() - started, 1)
+    done = 0
+
+    def progress(n: int) -> None:
+        if on_progress:
+            on_progress(done + n)
+
+    text, retried_text = _ask("structure_text.md", TextPart, fields, progress)
+    done = len(text.model_dump_json())
+    extract, retried_extract = _ask("structure_extract.md", ExtractPart, fields, progress)
+    memory = StructuredMemory(**text.model_dump(), **extract.model_dump())
+    meta = {"model": GEMMA_MODEL, "retried": retried_text or retried_extract, "seconds": round(time.time() - started, 1)}
     return memory, meta

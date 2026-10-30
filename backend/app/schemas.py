@@ -68,10 +68,33 @@ class StructuredMemory(BaseModel):
     follow_up_questions: list[FollowUpQuestion] = Field(default_factory=list)
 
 
-def gemma_json_schema() -> dict:
+class TextPart(BaseModel):
+    """First Gemma call: the story itself."""
+
+    title: str
+    luganda_text: str
+    english_text: str
+    changes_made: list[Change] = Field(default_factory=list)
+
+
+class ExtractPart(BaseModel):
+    """Second Gemma call: what the story mentions."""
+
+    people: list[PersonMention] = Field(default_factory=list)
+    places: list[PlaceMention] = Field(default_factory=list)
+    time_periods: list[TimePeriod] = Field(default_factory=list)
+    proverbs: list[Proverb] = Field(default_factory=list)
+    clan: Optional[Attribute] = None
+    totem: Optional[Attribute] = None
+    follow_up_questions: list[FollowUpQuestion] = Field(default_factory=list)
+
+
+def gemma_json_schema(model: type[BaseModel] = StructuredMemory) -> dict:
     """Schema sent to Ollama's structured-output `format`, without our own bookkeeping fields."""
-    schema = StructuredMemory.model_json_schema()
-    for d in schema.get("$defs", {}).values():
-        d.get("properties", {}).pop("grounded", None)
-        d.get("properties", {}).pop("answered", None)
+    schema = model.model_json_schema()
+    for d in [schema, *schema.get("$defs", {}).values()]:
+        props = d.get("properties", {})
+        props.pop("grounded", None)
+        props.pop("answered", None)
+        d["required"] = list(props)  # make Gemma write every field, even if only [] or null
     return schema

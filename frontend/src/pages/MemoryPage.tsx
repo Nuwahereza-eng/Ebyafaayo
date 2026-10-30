@@ -349,7 +349,7 @@ export default function MemoryPage() {
             />
             <ItemList
               title="Questions to ask next time"
-              help="Gentle questions about things the elder mentioned but did not explain."
+              help="Gentle questions about things the elder mentioned but did not explain. Gemma's Luganda can be awkward, so please fix the wording before you ask."
               items={data.follow_up_questions}
               sourced={false}
               fields={[
