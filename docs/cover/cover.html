@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<!-- DEV cover image for Ebyafaayo. Render: scripts/render_cover.sh (1000×420, saved at 2×). -->
+<style>
+  @font-face { font-family: Lora; font-weight: 400; src: url(../../frontend/node_modules/@fontsource/lora/files/lora-latin-400-normal.woff2); }
+  @font-face { font-family: Lora; font-weight: 400; font-style: italic; src: url(../../frontend/node_modules/@fontsource/lora/files/lora-latin-400-italic.woff2); }
+  @font-face { font-family: Lora; font-weight: 600; src: url(../../frontend/node_modules/@fontsource/lora/files/lora-latin-600-normal.woff2); }
+  @font-face { font-family: Inter; font-weight: 400; src: url(../../frontend/node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2); }
+  @font-face { font-family: Inter; font-weight: 600; src: url(../../frontend/node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2); }
+
+  :root { --bark: #6D4C41; --bark-dark: #3E2A23; --cream: #FBF7F0; --green: #1B5E20; --marigold: #F2A33A; }
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 1000px; height: 420px; overflow: hidden; }
+  body {
+    position: relative;
+    background: radial-gradient(120% 140% at 15% 20%, #7B5649 0%, var(--bark) 45%, var(--bark-dark) 100%);
+    font-family: Inter, sans-serif;
+    color: var(--cream);
+  }
+  #fibres { position: absolute; inset: 0; }
+
+  .left { position: absolute; left: 60px; top: 58px; width: 520px; }
+  .kicker { font: 600 13px/1 Inter; letter-spacing: 0.22em; color: var(--marigold); text-transform: uppercase; }
+  h1 { font: 600 88px/1 Lora, serif; margin: 18px 0 14px; letter-spacing: -0.01em; }
+  .meaning { font: italic 400 19px/1.3 Lora, serif; color: rgba(251, 247, 240, 0.75); margin-bottom: 22px; }
+  .tagline { font: 400 27px/1.32 Lora, serif; }
+  .chips { position: absolute; left: 60px; bottom: 50px; display: flex; gap: 10px; }
+  .chip { font: 600 13px/1 Inter; padding: 8px 13px; border: 1.5px solid rgba(251, 247, 240, 0.55); border-radius: 999px; }
+  .chip.lock { border-color: var(--marigold); color: var(--marigold); }
+
+  .card {
+    position: absolute; left: 616px; top: 66px; width: 326px; height: 292px;
+    background: var(--cream); color: #2E2420; border-radius: 16px;
+    transform: rotate(-3deg);
+    box-shadow: 0 24px 50px rgba(0, 0, 0, 0.35), 0 2px 0 rgba(255, 255, 255, 0.4) inset;
+    padding: 26px 26px 22px;
+  }
+  .wave { display: flex; align-items: center; gap: 4px; height: 54px; margin-bottom: 16px; }
+  .wave span { width: 5px; border-radius: 3px; background: var(--marigold); }
+  .quote { font: italic 400 21px/1.35 Lora, serif; color: #2E2420; }
+  .translation { font: 400 14px/1.4 Inter; color: #6B5D55; margin-top: 8px; }
+  .lines { margin-top: 18px; }
+  .lines div { height: 7px; border-radius: 4px; background: #E8DED2; margin-bottom: 9px; }
+  .source { display: flex; align-items: center; gap: 8px; margin-top: 6px; font: 600 12px/1 Inter; color: var(--green); }
+  .source b { font: 600 26px/0.6 Lora; }
+
+  .marigold { position: absolute; left: 902px; top: 30px; }
+</style>
+</head>
+<body>
+  <svg id="fibres" width="1000" height="420"></svg>
+
+  <div class="left">
+    <div class="kicker">Offline · Open models · Luganda</div>
+    <h1>Ebyafaayo</h1>
+    <div class="meaning">Luganda: history, the things that happened</div>
+    <div class="tagline">Keeping our elders' stories alive,<br />in their own words.</div>
+  </div>
+  <div class="chips">
+    <span class="chip">Gemma 4</span>
+    <span class="chip">Sunbird AI</span>
+    <span class="chip">Ollama</span>
+    <span class="chip lock">Stays on your laptop</span>
+  </div>
+
+  <div class="card">
+    <div class="wave" id="wave"></div>
+    <div class="quote">“Jjajja, tubuulire ebyafaayo byaffe.”</div>
+    <div class="translation">Grandparent, tell us our history.</div>
+    <div class="lines">
+      <div style="width: 100%"></div>
+      <div style="width: 86%"></div>
+      <div style="width: 62%"></div>
+    </div>
+    <div class="source"><b>”</b> Every name links back to what was said</div>
+  </div>
+
+  <svg class="marigold" width="80" height="80" viewBox="-40 -40 80 80" id="marigold"></svg>
+
+<script>
+  // Deterministic random, so the image is the same every time.
+  let seed = 7;
+  const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // Bark-cloth fibres: long, slightly wavy strands.
+  const fibres = document.getElementById('fibres');
+  for (let i = 0; i < 260; i++) {
+    const y = rand() * 440 - 10, x0 = rand() * 300 - 300, len = 500 + rand() * 900;
+    const d = `M ${x0} ${y} C ${x0 + len * 0.33} ${y + (rand() - 0.5) * 18}, ${x0 + len * 0.66} ${y + (rand() - 0.5) * 18}, ${x0 + len} ${y + (rand() - 0.5) * 10}`;
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', rand() < 0.7 ? '#FBF7F0' : '#2A1C17');
+    p.setAttribute('stroke-opacity', (0.025 + rand() * 0.05).toFixed(3));
+    p.setAttribute('stroke-width', (0.6 + rand() * 1.8).toFixed(2));
+    fibres.appendChild(p);
+  }
+
+  // Voice waveform on the card, fading from marigold to green as speech becomes text.
+  const wave = document.getElementById('wave');
+  const n = 46;
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('span');
+    const env = Math.sin((i / (n - 1)) * Math.PI) ** 0.6;
+    s.style.height = `${Math.max(5, env * (14 + rand() * 40))}px`;
+    const t = i / (n - 1);
+    s.style.background = t < 0.55 ? '#F2A33A' : `color-mix(in srgb, #F2A33A ${Math.round((1 - (t - 0.55) / 0.45) * 100)}%, #1B5E20)`;
+    wave.appendChild(s);
+  }
+
+  // A marigold (the Día de los Muertos flower): rings of petals.
+  const m = document.getElementById('marigold');
+  [[34, 22, '#E07B12'], [27, 18, '#F2A33A'], [19, 14, '#F7BE5A'], [11, 10, '#F9CF7A']].forEach(([r, count, color], ring) => {
+    for (let k = 0; k < count; k++) {
+      const a = (k / count) * Math.PI * 2 + ring * 0.3;
+      const e = document.createElementNS(NS, 'ellipse');
+      e.setAttribute('cx', (Math.cos(a) * r * 0.55).toFixed(2));
+      e.setAttribute('cy', (Math.sin(a) * r * 0.55).toFixed(2));
+      e.setAttribute('rx', (r * 0.42).toFixed(2));
+      e.setAttribute('ry', (r * 0.2).toFixed(2));
+      e.setAttribute('transform', `rotate(${(a * 180) / Math.PI} ${(Math.cos(a) * r * 0.55).toFixed(2)} ${(Math.sin(a) * r * 0.55).toFixed(2)})`);
+      e.setAttribute('fill', color);
+      e.setAttribute('stroke', '#B85C0A');
+      e.setAttribute('stroke-opacity', '0.25');
+      m.appendChild(e);
+    }
+  });
+  const c = document.createElementNS(NS, 'circle');
+  c.setAttribute('r', '5'); c.setAttribute('fill', '#B85C0A');
+  m.appendChild(c);
+</script>
+</body>
+</html>
