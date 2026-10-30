@@ -12,7 +12,7 @@ need npm "Node.js 20 or newer: https://nodejs.org (or nvm)."
 echo "==> Python environment"
 python3 -m venv .venv
 .venv/bin/pip install -q --upgrade pip
-.venv/bin/pip install -q -r backend/requirements.txt pytest
+.venv/bin/pip install -q -r backend/requirements.txt pytest pytest-asyncio
 
 echo "==> Web app"
 (cd frontend && npm ci --silent && npm run build --silent)
@@ -25,4 +25,6 @@ else
 fi
 echo "Then accept the terms at https://huggingface.co/Sunbird/asr-whisper-large-v3-salt,"
 echo "run: .venv/bin/hf auth login   and: make asr-model"
+echo "Optional, so a job survives a crash: install the Temporal CLI"
+echo "(https://docs.temporal.io/cli#install), then run: make temporal   (leave it running)"
 echo "Finally: make run   and open http://127.0.0.1:8000"

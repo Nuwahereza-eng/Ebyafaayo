@@ -89,9 +89,16 @@ class ExtractPart(BaseModel):
     follow_up_questions: list[FollowUpQuestion] = Field(default_factory=list)
 
 
+class PhotoPart(BaseModel):
+    """What Gemma sees in an old family photo. It describes; the family says who is in it."""
+
+    description: str
+    questions: list[FollowUpQuestion] = Field(default_factory=list)
+
+
 # Hard limits so a small model cannot loop forever ("ekyera ekyera ekyera ..."). Ollama turns
 # maxLength / maxItems into its decoding grammar, so these are enforced while Gemma writes.
-MAX_ITEMS = {"people": 30, "places": 25, "time_periods": 20, "proverbs": 10, "follow_up_questions": 5, "changes_made": 40}
+MAX_ITEMS = {"people": 30, "places": 25, "time_periods": 20, "proverbs": 10, "follow_up_questions": 5, "changes_made": 40, "questions": 5}
 SHORT_TEXT = 300  # names, sentences, questions
 
 
@@ -122,6 +129,8 @@ def gemma_json_schema(model: type[BaseModel] = StructuredMemory, transcript_char
     for name in ("luganda_text", "english_text"):
         if name in props:
             props[name]["maxLength"] = long_text
+    if "description" in props:  # a photo description: a short paragraph
+        props["description"]["maxLength"] = 800
     if "title" in props:
         props["title"]["maxLength"] = 120
     _limit_strings(schema, SHORT_TEXT)

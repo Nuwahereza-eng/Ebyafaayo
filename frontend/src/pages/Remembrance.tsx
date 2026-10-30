@@ -33,6 +33,7 @@ import {
 import { useCallback, useEffect, useState } from 'react'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import { api, formatDate, type Draft, type MentionSummary, type Remembrance as R } from '../api'
+import FamilyPhotos from '../components/FamilyPhotos'
 import Source from '../components/Source'
 import { SERIF } from '../theme'
 import { initials } from './Home'
@@ -223,6 +224,8 @@ export default function Remembrance() {
           <Mentions items={page.places} empty="No places named yet." />
         </CardContent>
       </Card>
+
+      <FamilyPhotos personId={person.id} photos={page.photos} onChanged={load} />
 
       <Card>
         <CardContent>

@@ -69,6 +69,26 @@ class Memory(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=now)
 
 
+class Photo(SQLModel, table=True):
+    """An old family photo. Gemma describes what it can see; the family says who is in it."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    person_id: int = Field(foreign_key="person.id", index=True)
+    path: str
+    caption: str = ""  # written by the family: who, where, when
+
+    # describing -> ready | failed
+    status: str = "describing"
+    progress_chars: int = 0
+    error: str = ""
+    model: str = ""
+    generation_seconds: float = 0.0
+    description: str = ""  # Gemma's draft, editable
+    questions: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    notes: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=now)
+
+
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 
 

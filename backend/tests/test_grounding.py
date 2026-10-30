@@ -57,3 +57,18 @@ def test_sentences_split_after_closing_quote():
         'Taata yagamba nti, "Agali awamu."',
         "Mu biseera bya Amin twadduka.",
     ]
+
+
+def test_photo_description_loses_sentences_with_names():
+    from app.grounding import remove_names
+
+    text, notes = remove_names("Two women stand by a house. The older one is Nakato Namubiru. It is a faded photo.", ["Nakato"])
+    assert text == "Two women stand by a house. It is a faded photo."
+    assert len(notes) == 1 and "nakato" in notes[0]
+
+
+def test_photo_description_keeps_ordinary_words_that_are_also_names():
+    from app.grounding import remove_names
+
+    text, notes = remove_names("A faded photo of a woman holding a rose.", ["Rose Nalwoga", "Photo Test"])
+    assert text == "A faded photo of a woman holding a rose." and notes == []

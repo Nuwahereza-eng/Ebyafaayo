@@ -1,4 +1,4 @@
-.PHONY: setup asr-model gemma run dev test
+.PHONY: setup asr-model gemma temporal run dev test
 
 GEMMA ?= gemma4:e2b
 
@@ -11,6 +11,13 @@ asr-model:        ## Download and convert the Sunbird speech model (needs `hf au
 
 gemma:            ## Download Gemma 4 into Ollama
 	ollama pull $(GEMMA)
+
+TEMPORAL ?= $(shell command -v temporal || echo $(HOME)/.local/temporal/temporal)
+
+temporal:         ## Local Temporal server, so jobs resume after a crash (history kept in data/temporal.db)
+	mkdir -p data
+	$(TEMPORAL) server start-dev --ip 127.0.0.1 --port 7233 --ui-port 8233 \
+		--db-filename data/temporal.db --log-level warn
 
 run:              ## Build the web app and serve everything on http://127.0.0.1:8000
 	cd frontend && npm run build

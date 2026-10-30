@@ -12,10 +12,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from . import asr, jobs, llm
+from . import asr, durable, jobs, llm
 from .audio import duration_seconds, to_wav16k
 from .config import AUDIO_DIR, FRONTEND_DIST, LANGUAGES, PHOTO_DIR
-from .db import Memory, Person, Recording, engine, get_session, init_db, now
+from .db import Memory, Person, Photo, Recording, get_session, init_db, now
 from .grounding import normalize
 
 app = FastAPI(title="Ebyafaayo", docs_url="/api/docs", openapi_url="/api/openapi.json")
@@ -27,17 +27,18 @@ CONSENT_TEXT = (
 
 
 @app.on_event("startup")
-def startup() -> None:
+async def startup() -> None:
     init_db()
-    # Jobs do not survive a restart; mark interrupted ones so the family can retry.
-    with Session(engine) as s:
-        for rec in s.exec(select(Recording).where(Recording.status.in_(["queued", "transcribing"]))):
-            rec.status, rec.error = "failed", "Interrupted (the app was restarted). Please try again."
-            s.add(rec)
-        for mem in s.exec(select(Memory).where(Memory.status == "generating")):
-            mem.status, mem.error = "failed", "Interrupted (the app was restarted). Please try again."
-            s.add(mem)
-        s.commit()
+    await durable.runner.connect()
+    # Jobs Temporal is still running carry on where they stopped; others are marked for a retry.
+    resumed = await durable.recover()
+    if resumed:
+        print(f"Resuming {len(resumed)} job(s) with Temporal: {', '.join(resumed)}")
+
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    await durable.runner.stop()
 
 
 # ---------- status ----------
@@ -48,6 +49,7 @@ def status():
     return {
         "asr": asr.asr_status(),
         "gemma": llm.ollama_status(),
+        "jobs": durable.runner.status(),
         "languages": LANGUAGES,
         "consent_text": CONSENT_TEXT,
         "privacy": "Everything runs on this computer. No analytics, no telemetry, no cloud AI.",
@@ -119,6 +121,92 @@ def get_photo(person_id: int, s: Session = Depends(get_session)):
     return FileResponse(p.photo_path)
 
 
+# ---------- old family photos: Gemma describes them, the family says who is in them ----------
+
+PHOTO_TYPES = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def photo_out(p: Photo) -> dict:
+    d = p.model_dump(exclude={"path"})
+    d["url"] = f"/api/photos/{p.id}/image"
+    return d
+
+
+@app.post("/api/people/{person_id}/photos")
+def add_family_photo(person_id: int, photo: UploadFile = File(...), s: Session = Depends(get_session)):
+    s.get(Person, person_id) or _404()
+    ext = Path(photo.filename or "").suffix.lower() or ".jpg"
+    if ext not in PHOTO_TYPES:
+        raise HTTPException(400, "Please use a JPG, PNG or WebP photo.")
+    dst = PHOTO_DIR / f"family-{person_id}-{uuid.uuid4().hex[:8]}{ext}"
+    with dst.open("wb") as f:
+        shutil.copyfileobj(photo.file, f)
+    gemma_ready = llm.ollama_status()["model_ready"]
+    p = Photo(person_id=person_id, path=str(dst), status="describing" if gemma_ready else "failed",
+              error="" if gemma_ready else "Gemma is not running. Start Ollama, then press Describe again.")
+    s.add(p)
+    s.commit()
+    s.refresh(p)
+    if gemma_ready:
+        jobs.start("photo", p.id)
+    return photo_out(p)
+
+
+@app.get("/api/people/{person_id}/photos")
+def list_family_photos(person_id: int, s: Session = Depends(get_session)):
+    return [photo_out(p) for p in s.exec(select(Photo).where(Photo.person_id == person_id).order_by(Photo.created_at))]
+
+
+@app.get("/api/photos/{photo_id}")
+def get_family_photo(photo_id: int, s: Session = Depends(get_session)):
+    return photo_out(s.get(Photo, photo_id) or _404())
+
+
+@app.get("/api/photos/{photo_id}/image")
+def get_family_photo_image(photo_id: int, s: Session = Depends(get_session)):
+    return FileResponse((s.get(Photo, photo_id) or _404()).path)
+
+
+class PhotoIn(BaseModel):
+    caption: str
+    description: str
+    questions: list[dict[str, Any]]
+
+
+@app.patch("/api/photos/{photo_id}")
+def update_family_photo(photo_id: int, body: PhotoIn, s: Session = Depends(get_session)):
+    p = s.get(Photo, photo_id) or _404()
+    if p.status == "describing":
+        raise HTTPException(409, "Gemma is still looking at this photo.")
+    p.caption, p.description, p.questions = body.caption, body.description, body.questions
+    s.add(p)
+    s.commit()
+    s.refresh(p)
+    return photo_out(p)
+
+
+@app.post("/api/photos/{photo_id}/describe")
+def describe_family_photo(photo_id: int, s: Session = Depends(get_session)):
+    p = s.get(Photo, photo_id) or _404()
+    if not llm.ollama_status()["model_ready"]:
+        raise HTTPException(409, "Gemma is not running. Start Ollama and pull the model first.")
+    p.status, p.error = "describing", ""
+    s.add(p)
+    s.commit()
+    s.refresh(p)
+    jobs.start("photo", p.id)
+    return photo_out(p)
+
+
+@app.delete("/api/photos/{photo_id}")
+def delete_family_photo(photo_id: int, s: Session = Depends(get_session)):
+    p = s.get(Photo, photo_id) or _404()
+    Path(p.path).unlink(missing_ok=True)
+    s.delete(p)
+    s.commit()
+    return {"ok": True}
+
+
 # ---------- recordings ----------
 
 
@@ -180,7 +268,7 @@ def create_recording(
     s.commit()
     s.refresh(rec)
     if rec.status == "queued":
-        jobs.submit(jobs.run_transcription, rec.id)
+        jobs.start("transcribe", rec.id)
     return rec
 
 
@@ -209,7 +297,7 @@ def retry_transcription(rec_id: int, s: Session = Depends(get_session)):
     s.add(rec)
     s.commit()
     s.refresh(rec)
-    jobs.submit(jobs.run_transcription, rec.id)
+    jobs.start("transcribe", rec.id)
     return rec
 
 
@@ -256,7 +344,7 @@ def structure(rec_id: int, s: Session = Depends(get_session)):
     s.add(mem)
     s.commit()
     s.refresh(mem)
-    jobs.submit(jobs.run_structuring, mem.id)
+    jobs.start("memory", mem.id)
     return mem
 
 
@@ -373,6 +461,7 @@ def remembrance(person: Person, s: Session) -> dict:
         "places": sorted(places.values(), key=lambda e: e["name"]),
         "timeline": timeline,
         "open_questions": questions,
+        "photos": [photo_out(p) for p in s.exec(select(Photo).where(Photo.person_id == person.id).order_by(Photo.created_at))],
     }
 
 

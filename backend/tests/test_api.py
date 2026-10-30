@@ -52,20 +52,53 @@ def test_family_can_type_transcript(client, tone):
     assert r.json()["transcript_reviewed"] is True
 
 
-def test_structuring_job_saves_gemma_result(client, tone, monkeypatch):
-    """Runs the background job with Gemma replaced by a canned answer."""
+def canned_gemma(monkeypatch):
+    """Replace Gemma with fixed answers, and run jobs straight away instead of in the background."""
     from app import jobs, llm
-    from app.schemas import StructuredMemory
+    from app.schemas import ExtractPart, PhotoPart, TextPart
 
+    text = TextPart(title="T", luganda_text="Taata wange yali Kizito.", english_text="My father was Kizito.")
+    extract = ExtractPart(people=[{"name": "Kizito", "relationship_to_speaker": "father",
+                                   "source_sentence": "Taata wange yali Kizito.", "confidence": "clear"}])
+    photo = PhotoPart(description="A black-and-white photo of two men in suits. The man on the left is Kizito, the father.",
+                      questions=[{"luganda": "Jjajja, ani ono?", "english": "Grandparent, who is this?"}])
+    monkeypatch.setattr(llm, "ollama_status", lambda: {"model_ready": True})
+    monkeypatch.setattr(llm, "write_story", lambda *a, **k: (text, False))
+    monkeypatch.setattr(llm, "find_details", lambda *a, **k: (extract, False))
+    monkeypatch.setattr(llm, "describe_photo", lambda *a, **k: (photo, {"model": "test", "retried": False, "seconds": 1}))
+    monkeypatch.setattr(jobs, "start", lambda kind, id_: jobs._run_in_thread(kind, id_))
+
+
+def test_structuring_job_saves_gemma_result(client, tone, monkeypatch):
+    canned_gemma(monkeypatch)
     rec = upload(client, tone, True, name="Job Test").json()
     client.patch(f"/api/recordings/{rec['id']}/transcript", json={"transcript": "Taata wange yali Kizito."})
-    canned = StructuredMemory(title="T", luganda_text="Taata wange yali Kizito.", english_text="My father was Kizito.",
-        people=[{"name": "Kizito", "relationship_to_speaker": "father", "source_sentence": "Taata wange yali Kizito.", "confidence": "clear"}])
-    monkeypatch.setattr(llm, "ollama_status", lambda: {"model_ready": True})
-    monkeypatch.setattr(llm, "structure_transcript", lambda *a, **k: (canned, {"model": "test", "retried": False, "seconds": 1}))
-    monkeypatch.setattr(jobs, "submit", lambda fn, *args: fn(*args))
     mem = client.post(f"/api/recordings/{rec['id']}/structure").json()
     got = client.get(f"/api/memories/{mem['id']}").json()
     assert got["status"] == "draft", got["error"]
-    assert got["model"] == "test"
+    from app.config import GEMMA_MODEL
+
+    assert got["model"] == GEMMA_MODEL
     assert got["data"]["people"][0]["grounded"] is True
+
+
+def test_photo_description_never_names_anyone(client, tone, monkeypatch):
+    """Gemma said who was in the photo; that sentence must not reach the family book."""
+    canned_gemma(monkeypatch)
+    rec = upload(client, tone, True, name="Photo Test").json()
+    client.patch(f"/api/recordings/{rec['id']}/transcript", json={"transcript": "Taata wange yali Kizito."})
+    mem = client.post(f"/api/recordings/{rec['id']}/structure").json()
+    client.patch(f"/api/memories/{mem['id']}", json={"title": "T", "data": client.get(f"/api/memories/{mem['id']}").json()["data"], "save": True})
+
+    with tone.open("rb") as f:  # any bytes will do: Gemma is canned
+        photo = client.post(f"/api/people/{rec['person_id']}/photos", files={"photo": ("old.jpg", f)}).json()
+    got = client.get(f"/api/photos/{photo['id']}").json()
+    assert got["status"] == "ready", got["error"]
+    assert got["description"] == "A black-and-white photo of two men in suits."
+    assert "Kizito" not in got["description"] and got["notes"]
+    assert got["questions"][0]["english"] == "Grandparent, who is this?"
+
+    page = client.get(f"/api/people/{rec['person_id']}/remembrance").json()
+    assert page["photos"][0]["id"] == photo["id"]
+    r = client.patch(f"/api/photos/{photo['id']}", json={"caption": "Taata Kizito, 1960s", "description": got["description"], "questions": []})
+    assert r.json()["caption"] == "Taata Kizito, 1960s"

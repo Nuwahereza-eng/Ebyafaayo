@@ -104,3 +104,21 @@ def ground(memory: StructuredMemory, transcript: str) -> tuple[StructuredMemory,
 def similarity(a: str, b: str) -> float:
     """How close Gemma's cleaned Luganda is to the family's transcript (1.0 = identical)."""
     return round(SequenceMatcher(None, normalize(a), normalize(b)).ratio(), 3)
+
+
+def remove_names(description: str, names: list[str]) -> tuple[str, list[str]]:
+    """Drop any sentence of a photo description that names someone the family knows.
+
+    Gemma may not say who is in a photo: it cannot know, and a wrong guess would be passed down.
+    The family writes that part themselves.
+    """
+    words = {w for n in names for w in normalize(n).split() if len(w) > 2}
+    kept, notes = [], []
+    for sentence in split_sentences(description):
+        capitalised = {normalize(w) for w in re.findall(r"\b[A-Z][\w']+", sentence)}  # names, not "photo"
+        hit = words & capitalised
+        if hit:
+            notes.append(f"Removed a sentence that named someone ({', '.join(sorted(hit))}). Only the family says who is in a photo.")
+        else:
+            kept.append(sentence)
+    return " ".join(kept), notes

@@ -46,6 +46,7 @@ export default function About() {
           <Stack spacing={1} sx={{ mb: 2 }}>
             <Ready ok={status?.asr.ready} label="Sunbird speech model" />
             <Ready ok={status?.gemma.model_ready} label={`Gemma 4 (${status?.gemma.model ?? '…'}) through Ollama`} />
+            <Ready ok={status?.jobs.engine === 'temporal'} label="Temporal, so a job survives a crash" />
           </Stack>
           <Box component="ul" sx={{ pl: 2.5, m: 0, '& li': { mb: 1 } }}>
             <li>
@@ -57,6 +58,11 @@ export default function About() {
             <li>
               <b>Writing, translation and extraction:</b> <Link href="https://ai.google.dev/gemma">Gemma 4</Link> by Google
               DeepMind (open weights, Gemma Terms of Use), run locally with <Link href="https://ollama.com">Ollama</Link>.
+            </li>
+            <li>
+              <b>Durable jobs:</b> <Link href="https://temporal.io">Temporal</Link> (MIT licence), running locally. Each
+              job is a series of saved steps, so if the computer runs out of memory or the app is closed, the job picks
+              up where it stopped. Without it, the app still works, but an interrupted job has to be started again.
             </li>
             <li>Made with FastAPI, SQLite, React and Material UI. Fonts: Lora and Inter, stored with the app.</li>
           </Box>

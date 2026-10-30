@@ -36,7 +36,9 @@ Gemma is only allowed to use what the elder actually said. Every name, place and
 6. **Every item is linked to its source sentence**, shown on hover or tap. The app checks Gemma's quotes against the transcript itself: items it cannot find are flagged in amber, and a clan or totem that is not in the transcript is removed.
 7. **Everything is editable** before it is saved.
 8. **Remembrance page** for each elder: stories in order, a timeline, the people and places they spoke of, and the questions still to ask.
-9. **Memory book:** a print-friendly page for one elder or the whole family. Save it as a PDF from the browser.
+9. **Old photos.** Add a photo from the family album to an elder's page. Gemma 4 looks at it, describes only what it can see (never who anyone is), and suggests questions to ask about it in Luganda and English. The family writes who is in it.
+10. **Memory book:** a print-friendly page for one elder or the whole family, with the photos. Save it as a PDF from the browser.
+11. **Jobs survive a crash.** With a local [Temporal](https://temporal.io) server running, transcription and Gemma run as durable workflows: if the laptop runs out of memory or the app is closed half way, the job carries on from the step it was on.
 
 ### Screenshots
 
@@ -59,9 +61,11 @@ These use a short **sample** story written for testing, not a real family's stor
 ```mermaid
 flowchart LR
   subgraph Laptop["One laptop, no internet needed"]
-    B["Browser<br/>React + MUI<br/>MediaRecorder"] -- "audio, edits" --> API["FastAPI<br/>(127.0.0.1:8000)"]
+    B["Browser<br/>React + MUI<br/>MediaRecorder"] -- "audio, photos, edits" --> API["FastAPI<br/>(127.0.0.1:8000)"]
+    API -- "start job" --> T["Temporal dev server<br/>(127.0.0.1:7233)<br/>workflow history"]
+    T -- "one step at a time" --> API
     API -- "ffmpeg → 16 kHz WAV" --> ASR["Sunbird ASR<br/>asr-whisper-large-v3-salt<br/>faster-whisper, int8"]
-    API -- "corrected transcript<br/>+ JSON schema" --> OL["Ollama<br/>Gemma 4 E2B"]
+    API -- "corrected transcript or photo<br/>+ JSON schema" --> OL["Ollama<br/>Gemma 4 E2B"]
     OL -- "structured memory" --> G["Grounding check<br/>(quotes must be in transcript)"]
     G --> DB[("SQLite<br/>+ data/ audio")]
     ASR --> DB
@@ -72,7 +76,9 @@ flowchart LR
 - **Speech to text:** `Sunbird/asr-whisper-large-v3-salt`, converted once to CTranslate2 int8 (`scripts/convert_asr.py`) and run with faster-whisper. Long recordings are cut into pieces of at most 30 seconds, at the quietest moment near each cut. The language token comes from the Sunbird model card (Luganda = token 50355); the conversion script maps it through the model's own tokenizer.
 - **Structuring:** Gemma 4 through Ollama's local HTTP API, in two focused calls: one writes the clean Luganda and the English translation ([`structure_text.md`](backend/prompts/structure_text.md)), the other notes the people, places, times, proverbs, clan, totem and follow-up questions ([`structure_extract.md`](backend/prompts/structure_extract.md)). When we asked Gemma E2B for everything in one call, it sometimes returned every list empty. Each call uses Ollama structured outputs: a JSON schema generated from the Pydantic model, with every field required and a maximum length for every string and list, so a looping model cannot write forever. Pydantic validates the result, with one "fix this JSON" retry.
 - **Grounding check** ([`backend/app/grounding.py`](backend/app/grounding.py)): every person, place, time, proverb, clan and totem must quote a sentence that is really in the transcript, and names must actually appear in it. Matching quotes are replaced with the exact transcript sentence, unmatched items are marked "unclear" and highlighted, and an unmatched clan or totem is dropped.
-- **One heavy job at a time:** an 8 GB laptop cannot hold both models, so the app unloads Gemma before transcribing and drops the speech model afterwards.
+- **Photos** ([`describe_photo.md`](backend/prompts/describe_photo.md)): Gemma 4 E2B reads the image through Ollama and fills a small schema: a description and 3 to 5 questions. It is told never to say who anyone is. As a safety net, the app removes any sentence of the description that contains the name of someone the family knows (an elder, or anyone named in their stories), and tells the family it did so.
+- **Durable jobs** ([`workflows.py`](backend/app/workflows.py), [`durable.py`](backend/app/durable.py)): each job is a Temporal workflow made of small steps (activities). Transcription is one step per 30-second piece; a memory is "Gemma writes the story", "Gemma finds the details", "check and save". Temporal records each finished step, so after a crash only the unfinished step runs again, and a failed step is retried up to five times over about four minutes (time for Ollama to restart if it was killed) before the family is told. The worker runs inside the app; the server is `temporal server start-dev` with its history in `data/temporal.db`, all on the laptop. If no Temporal server is running, the same steps run in a background thread, and an interrupted job is marked failed for the family to retry.
+- **One heavy job at a time:** an 8 GB laptop cannot hold both models, so the worker runs one step at a time, unloads Gemma before transcribing and drops the speech model afterwards.
 
 ## Why open models
 
@@ -95,8 +101,11 @@ make gemma                  # ollama pull gemma4:e2b (4.6 GB)
 .venv/bin/hf auth login
 make asr-model              # downloads 6.2 GB, converts to 1.6 GB int8, deletes the original
 
+make temporal               # optional, in a second terminal: jobs then survive a crash
 make run                    # open http://127.0.0.1:8000
 ```
+
+`make temporal` needs the [Temporal CLI](https://docs.temporal.io/cli#install). Its web UI at http://127.0.0.1:8233 shows every job and each step's history.
 
 Without the speech model, the app still works: the family listens to the recording and types the transcript.
 
@@ -134,7 +143,7 @@ Gemma's time grows with the length of the story, so a 3-minute story will take s
 
 ## Gemma 4 audio test
 
-Not done. Gemma 4 E2B in Ollama only accepts text and images (no audio), and testing it through `transformers` would need a second ~10 GB download of the full model. The development laptop has neither the disk space nor the RAM. We cut this optional test, as planned, rather than leave the core app unfinished.
+Not done. When we planned the build, we expected to need the full model through `transformers`, a second ~10 GB download the development laptop had no room for, so we cut this optional test to finish the core app. Our installed Ollama now lists `audio` among `gemma4:e2b`'s capabilities (`ollama show gemma4:e2b`), so a direct Luganda test is possible; we have not run it yet.
 
 ## Credits and licences
 
@@ -145,7 +154,7 @@ Not done. Gemma 4 E2B in Ollama only accepts text and images (no audio), and tes
 - [Gemma 4](https://ai.google.dev/gemma) by Google DeepMind. Open weights under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms).
 - [Sunbird/asr-whisper-large-v3-salt](https://huggingface.co/Sunbird/asr-whisper-large-v3-salt) by [Sunbird AI](https://sunbird.ai), MIT licence. Fine-tuned from [OpenAI Whisper large-v3](https://huggingface.co/openai/whisper-large-v3) (Apache 2.0) on the [SALT](https://huggingface.co/datasets/Sunbird/salt) dataset.
 
-**Open-source software we build on:** [Ollama](https://ollama.com) (MIT), [faster-whisper](https://github.com/SYSTRAN/faster-whisper) and [CTranslate2](https://github.com/OpenNMT/CTranslate2) (MIT), [Hugging Face Transformers](https://github.com/huggingface/transformers) (Apache 2.0, used only for the one-time model conversion), [FastAPI](https://fastapi.tiangolo.com) (MIT), [SQLModel](https://sqlmodel.tiangolo.com) (MIT), [React](https://react.dev) (MIT), [Vite](https://vite.dev) (MIT), [Material UI](https://mui.com) (MIT), [ffmpeg](https://ffmpeg.org) (LGPL/GPL, called as a separate program), [Lora](https://github.com/cyrealtype/Lora-Cyrillic) and [Inter](https://rsms.me/inter/) fonts (SIL Open Font License) via [Fontsource](https://fontsource.org).
+**Open-source software we build on:** [Ollama](https://ollama.com) (MIT), [faster-whisper](https://github.com/SYSTRAN/faster-whisper) and [CTranslate2](https://github.com/OpenNMT/CTranslate2) (MIT), [Hugging Face Transformers](https://github.com/huggingface/transformers) (Apache 2.0, used only for the one-time model conversion), [Temporal](https://github.com/temporalio/temporal) and its [Python SDK](https://github.com/temporalio/sdk-python) (MIT), [FastAPI](https://fastapi.tiangolo.com) (MIT), [SQLModel](https://sqlmodel.tiangolo.com) (MIT), [React](https://react.dev) (MIT), [Vite](https://vite.dev) (MIT), [Material UI](https://mui.com) (MIT), [ffmpeg](https://ffmpeg.org) (LGPL/GPL, called as a separate program), [Lora](https://github.com/cyrealtype/Lora-Cyrillic) and [Inter](https://rsms.me/inter/) fonts (SIL Open Font License) via [Fontsource](https://fontsource.org).
 
 The language-token table in `scripts/convert_asr.py` is copied from the Sunbird model card.
 

@@ -62,23 +62,34 @@ def split_chunks(audio: np.ndarray, max_s: int = CHUNK_SECONDS, search_s: int = 
     return [c for c in chunks if len(c) > SAMPLE_RATE // 4]
 
 
-def transcribe(wav_path: str, language: str = "lug", on_progress: Optional[Callable[[float], None]] = None) -> str:
+def load_chunks(wav_path: str) -> list[np.ndarray]:
     from faster_whisper.audio import decode_audio
 
-    whisper_lang = language_codes()[language]
-    model = _load()
-    audio = decode_audio(wav_path, sampling_rate=SAMPLE_RATE)
-    chunks = split_chunks(audio)
+    return split_chunks(decode_audio(wav_path, sampling_rate=SAMPLE_RATE))
+
+
+def transcribe_chunk(chunk: np.ndarray, language: str = "lug", on_segment: Optional[Callable[[], None]] = None) -> str:
+    """One piece of at most 30 seconds. `on_segment` is called after each sentence the model hears."""
+    segments, _ = _load().transcribe(
+        chunk,
+        language=language_codes()[language],
+        beam_size=5,
+        condition_on_previous_text=False,
+        vad_filter=False,
+    )
+    texts = []
+    for s in segments:  # a generator: the model works as we read it
+        texts.append(s.text.strip())
+        if on_segment:
+            on_segment()
+    return " ".join(texts).strip()
+
+
+def transcribe(wav_path: str, language: str = "lug", on_progress: Optional[Callable[[float], None]] = None) -> str:
+    chunks = load_chunks(wav_path)
     texts = []
     for i, chunk in enumerate(chunks):
-        segments, _ = model.transcribe(
-            chunk,
-            language=whisper_lang,
-            beam_size=5,
-            condition_on_previous_text=False,
-            vad_filter=False,
-        )
-        texts.append(" ".join(s.text.strip() for s in segments).strip())
+        texts.append(transcribe_chunk(chunk, language))
         if on_progress:
             on_progress((i + 1) / len(chunks))
     return "\n".join(t for t in texts if t)

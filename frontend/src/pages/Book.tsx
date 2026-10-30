@@ -52,6 +52,22 @@ function Chapter({ r, first }: { r: Remembrance; first: boolean }) {
         </Box>
       ))}
 
+      {r.photos.filter((p) => p.status === 'ready' || p.caption).length > 0 && (
+        <Box sx={{ mb: 4 }}>
+          <Divider sx={{ mb: 2 }} />
+          <Typography variant="h5" component="h3" gutterBottom>Photos</Typography>
+          {r.photos.filter((p) => p.status === 'ready' || p.caption).map((p) => (
+            <Box key={p.id} className="avoid-break" sx={{ mb: 3, textAlign: 'center' }}>
+              <Box component="img" src={p.url} alt={p.caption || 'Family photo'} sx={{ maxWidth: '100%', maxHeight: 360 }} />
+              {p.caption && <Typography sx={{ fontFamily: SERIF, mt: 1 }}>{p.caption}</Typography>}
+              {p.description && (
+                <Typography variant="body2" color="text.secondary" sx={{ fontFamily: SERIF, fontStyle: 'italic' }}>{p.description}</Typography>
+              )}
+            </Box>
+          ))}
+        </Box>
+      )}
+
       {r.timeline.length > 0 && (
         <Box className="avoid-break" sx={{ mb: 4 }}>
           <Divider sx={{ mb: 2 }} />

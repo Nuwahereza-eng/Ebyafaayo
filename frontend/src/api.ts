@@ -118,6 +118,22 @@ export interface MentionSummary {
   stories: { memory_id: number; title: string; source_sentence: string }[]
 }
 
+export interface FamilyPhoto {
+  id: number
+  person_id: number
+  url: string
+  caption: string
+  status: 'describing' | 'ready' | 'failed'
+  progress_chars: number
+  error: string
+  model: string
+  generation_seconds: number
+  description: string
+  questions: Question[]
+  notes: string[]
+  created_at: string
+}
+
 export interface Remembrance {
   person: Person
   memories: Memory[]
@@ -125,6 +141,7 @@ export interface Remembrance {
   places: MentionSummary[]
   timeline: TimelineEntry[]
   open_questions: (Question & { memory_id: number; index: number; title: string })[]
+  photos: FamilyPhoto[]
 }
 
 export interface Draft {
@@ -139,6 +156,7 @@ export interface Draft {
 export interface Status {
   asr: { model: string; ready: boolean }
   gemma: { running: boolean; model: string; model_ready: boolean }
+  jobs: { engine: 'temporal' | 'thread'; address: string; error: string }
   languages: Record<string, string>
   consent_text: string
   privacy: string
@@ -187,6 +205,16 @@ export const api = {
     request<Memory>('PATCH', `/api/memories/${id}`, { title, data, save }),
   markQuestion: (memId: number, index: number, answered: boolean) =>
     request('PATCH', `/api/memories/${memId}/questions/${index}`, { answered }),
+  addFamilyPhoto: (personId: number, file: File) => {
+    const f = new FormData()
+    f.append('photo', file)
+    return request<FamilyPhoto>('POST', `/api/people/${personId}/photos`, f)
+  },
+  familyPhoto: (id: number) => request<FamilyPhoto>('GET', `/api/photos/${id}`),
+  updateFamilyPhoto: (id: number, p: Pick<FamilyPhoto, 'caption' | 'description' | 'questions'>) =>
+    request<FamilyPhoto>('PATCH', `/api/photos/${id}`, p),
+  describeFamilyPhoto: (id: number) => request<FamilyPhoto>('POST', `/api/photos/${id}/describe`),
+  deleteFamilyPhoto: (id: number) => request<{ ok: boolean }>('DELETE', `/api/photos/${id}`),
   remembrance: (personId: number) => request<Remembrance>('GET', `/api/people/${personId}/remembrance`),
   drafts: (personId: number) => request<Draft[]>('GET', `/api/people/${personId}/drafts`),
   book: (personId?: number) => request<Remembrance[]>('GET', personId ? `/api/book?person_id=${personId}` : '/api/book'),

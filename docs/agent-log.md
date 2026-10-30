@@ -46,4 +46,18 @@ Unit tests cover an invented uncle and an invented clan.
 
 **Honest limits found in testing.** E2B's translation once turned "I met my husband" into "my husband was killed", and it never got the proverb's meaning right. The grounding check cannot catch translation errors, so the README says so plainly and the UI asks for a bilingual check.
 
-**Gemma audio test: cut.** Gemma 4 E2B in Ollama has no audio input, and testing it through transformers needs another ~10 GB download that this laptop cannot hold.
+**Gemma audio test: cut.** When planned, we expected to need the full model through transformers, another ~10 GB download this laptop cannot hold. (Later, `ollama show gemma4:e2b` listed `audio` among its capabilities. Not tested yet.)
+
+## Day 2: durable jobs and old photos
+
+**Why Temporal.** The out-of-memory killer had already stopped Gemma (and the editor) twice. Each time, the job in progress was lost and the family would have had to start again. A Temporal workflow records each finished step, so after a crash only the unfinished step runs again. The Temporal dev server is open source and runs on the laptop with its history in `data/temporal.db`, so nothing leaves the machine.
+
+**How the jobs were split.** Transcription became "prepare" (cut the audio into 30-second pieces and save them), one step per piece, and "finish". A memory became "Gemma writes the story", "Gemma finds the details" and "check and save". Long steps send a heartbeat as each sentence or second of Gemma output arrives, so a dead worker is noticed in minutes, not after the 30-minute timeout. The worker runs one step at a time, which replaces the old one-thread queue. Without a Temporal server, the same steps run in a thread, as before.
+
+**Workflow code imports nothing from the app**, because Temporal replays it in a sandbox; the steps (activities) live in `durable.py`.
+
+**A test that kills a step.** `tests/test_durable.py` starts a real local Temporal server, makes "find the details" fail once with a MemoryError, and checks that the workflow finishes with Gemma's first answer reused (story step called once, details step twice).
+
+**The first live run hit a real out-of-memory kill**, with a browser open: Gemma was killed while loading. Temporal retried three times in 45 seconds, then marked the job failed cleanly. But Ollama had no restart policy, so the retries had nothing to talk to. Fixes: Ollama's service now restarts on failure, and the retry policy waits 15 s, 30 s, 1 min, then 2 min (five tries, about four minutes).
+
+**Old photos with Gemma's vision.** Gemma 4 E2B in Ollama reads images. The photo prompt allows only what is visible: people, clothing, setting, kind of photo. It may never say who anyone is, or guess a year, place, tribe or clan. As a safety net, any sentence of the description that contains a capitalised name of someone the family knows is removed, with a note to the family. The first version matched lowercase words too, and a test caught it removing "photo" because the test elder was called "Photo Test".
