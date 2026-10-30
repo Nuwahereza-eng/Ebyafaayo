@@ -115,6 +115,17 @@ Without the speech model, the app still works: the family listens to the recordi
 
 To use a bigger Gemma: `make gemma run GEMMA=gemma4:e4b`.
 
+### The public demo on Render
+
+The family version runs at home. For people who want to try Ebyafaayo without installing anything, the same app runs as a public demo on [Render](https://render.com), set up by [`render.yaml`](render.yaml) and the [`Dockerfile`](Dockerfile):
+
+- **One service** (4 CPUs, 8 GB RAM, no GPU) runs Ollama with Gemma 4 E2B on the CPU, a Temporal dev server and the app, all talking over `127.0.0.1` inside the container ([`scripts/start-render.sh`](scripts/start-render.sh)). Only the app's port is public; the Temporal web UI is turned off.
+- **A 10 GB persistent disk** keeps Gemma (pulled on the first start), the database and Temporal's history across deploys. Jobs survive a redeploy the same way they survive a crash at home.
+- **Demo mode** (`EBYAFAAYO_DEMO=1`) loads the sample story and the two public-domain test photos, shows a banner asking visitors not to upload real family recordings, turns off deleting, limits uploads to 15 MB and transcripts to 3,000 characters, and refuses new Gemma jobs while 3 are waiting.
+- **The speech model is not installed there** (it needs a Hugging Face login and a 6 GB download), so on the demo a new recording needs a typed transcript.
+
+To deploy your own: fork the repo, then in Render choose **New → Blueprint** and pick the fork. The first start takes a few extra minutes while Gemma downloads.
+
 ### Hardware notes
 
 | Gemma 4 model | Ollama download | RAM it needs (roughly) | Notes |

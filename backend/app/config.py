@@ -11,6 +11,9 @@ DB_PATH = DATA_DIR / "ebyafaayo.db"
 PROMPTS_DIR = ROOT / "backend" / "prompts"
 FRONTEND_DIST = ROOT / "frontend" / "dist"
 
+# A public demo server (see render.yaml): sample data, a banner, no deleting, small limits.
+DEMO = os.environ.get("EBYAFAAYO_DEMO") == "1"
+
 # Speech to text: Sunbird's open Whisper model, converted once to CTranslate2 int8
 # by scripts/convert_asr.py so it fits in laptop RAM.
 ASR_MODEL_DIR = Path(os.environ.get("EBYAFAAYO_ASR_DIR", ROOT / "models" / "sunbird-asr-whisper-large-v3-salt-ct2-int8"))

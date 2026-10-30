@@ -154,6 +154,7 @@ export interface Draft {
 }
 
 export interface Status {
+  demo: boolean
   asr: { model: string; ready: boolean }
   gemma: { running: boolean; model: string; model_ready: boolean }
   jobs: { engine: 'temporal' | 'thread'; address: string; error: string }

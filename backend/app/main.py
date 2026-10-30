@@ -13,9 +13,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from . import asr, durable, jobs, llm
+from . import asr, demo, durable, jobs, llm
 from .audio import duration_seconds, to_wav16k
-from .config import AUDIO_DIR, FRONTEND_DIST, LANGUAGES, PHOTO_DIR
+from .config import AUDIO_DIR, DEMO, FRONTEND_DIST, LANGUAGES, PHOTO_DIR
 from .db import Memory, Person, Photo, Recording, get_session, init_db, now
 from .grounding import normalize
 
@@ -30,6 +30,8 @@ CONSENT_TEXT = (
 @app.on_event("startup")
 async def startup() -> None:
     init_db()
+    if DEMO:
+        demo.seed()
     await durable.runner.connect()
     # Jobs Temporal is still running carry on where they stopped; others are marked for a retry.
     resumed = await durable.recover()
@@ -45,9 +47,27 @@ async def shutdown() -> None:
 # ---------- status ----------
 
 
+@app.get("/api/health")
+def health():
+    return {"ok": True}
+
+
+def demo_guard(upload: Optional[UploadFile] = None, job: bool = False, deleting: bool = False) -> None:
+    """On the public demo: no deleting, small uploads, and a short queue for the shared Gemma."""
+    if not DEMO:
+        return
+    if deleting:
+        raise HTTPException(403, "Deleting is turned off on the public demo.")
+    if upload is not None and (upload.size or 0) > demo.MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "On the public demo, files must be under 15 MB.")
+    if job and demo.jobs_waiting() >= demo.MAX_JOBS_WAITING:
+        raise HTTPException(429, "Gemma is busy with other visitors' requests. Please try again in a few minutes.")
+
+
 @app.get("/api/status")
 def status():
     return {
+        "demo": DEMO,
         "asr": asr.asr_status(),
         "gemma": llm.ollama_status(),
         "jobs": durable.runner.status(),
@@ -101,6 +121,7 @@ def update_person(person_id: int, body: PersonIn, s: Session = Depends(get_sessi
 
 @app.post("/api/people/{person_id}/photo")
 def upload_photo(person_id: int, photo: UploadFile = File(...), s: Session = Depends(get_session)):
+    demo_guard(upload=photo)
     p = s.get(Person, person_id) or _404()
     ext = Path(photo.filename or "").suffix.lower() or ".jpg"
     if ext not in {".jpg", ".jpeg", ".png", ".webp"}:
@@ -135,6 +156,7 @@ def photo_out(p: Photo) -> dict:
 
 @app.post("/api/people/{person_id}/photos")
 def add_family_photo(person_id: int, photo: UploadFile = File(...), s: Session = Depends(get_session)):
+    demo_guard(upload=photo, job=True)
     s.get(Person, person_id) or _404()
     ext = Path(photo.filename or "").suffix.lower() or ".jpg"
     if ext not in PHOTO_TYPES:
@@ -188,6 +210,7 @@ def update_family_photo(photo_id: int, body: PhotoIn, s: Session = Depends(get_s
 
 @app.post("/api/photos/{photo_id}/describe")
 def describe_family_photo(photo_id: int, s: Session = Depends(get_session)):
+    demo_guard(job=True)
     p = s.get(Photo, photo_id) or _404()
     if not llm.ollama_status()["model_ready"]:
         raise HTTPException(409, "Gemma is not running. Start Ollama and pull the model first.")
@@ -201,6 +224,7 @@ def describe_family_photo(photo_id: int, s: Session = Depends(get_session)):
 
 @app.delete("/api/photos/{photo_id}")
 def delete_family_photo(photo_id: int, s: Session = Depends(get_session)):
+    demo_guard(deleting=True)
     p = s.get(Photo, photo_id) or _404()
     Path(p.path).unlink(missing_ok=True)
     s.delete(p)
@@ -225,6 +249,7 @@ def create_recording(
 ):
     if not consent_given:
         raise HTTPException(400, "Consent is required before a story can be saved.")
+    demo_guard(upload=audio)
     if not consent_recorded_by.strip():
         raise HTTPException(400, "Please say who recorded the consent.")
     if language not in LANGUAGES:
@@ -321,6 +346,7 @@ def save_transcript(rec_id: int, body: TranscriptIn, s: Session = Depends(get_se
 
 @app.delete("/api/recordings/{rec_id}")
 def delete_recording(rec_id: int, s: Session = Depends(get_session)):
+    demo_guard(deleting=True)
     rec = s.get(Recording, rec_id) or _404()
     for m in s.exec(select(Memory).where(Memory.recording_id == rec_id)):
         s.delete(m)
@@ -339,6 +365,9 @@ def structure(rec_id: int, s: Session = Depends(get_session)):
     rec = s.get(Recording, rec_id) or _404()
     if not rec.transcript.strip():
         raise HTTPException(400, "The transcript is empty.")
+    if DEMO and len(rec.transcript) > demo.MAX_TRANSCRIPT_CHARS:
+        raise HTTPException(413, "On the public demo, a transcript can be up to 3,000 characters.")
+    demo_guard(job=True)
     if not llm.ollama_status()["model_ready"]:
         raise HTTPException(409, "Gemma is not running. Start Ollama and pull the model first.")
     mem = Memory(recording_id=rec.id, person_id=rec.person_id, status="generating")
@@ -391,6 +420,7 @@ def update_memory(mem_id: int, body: MemoryIn, s: Session = Depends(get_session)
 
 @app.delete("/api/memories/{mem_id}")
 def delete_memory(mem_id: int, s: Session = Depends(get_session)):
+    demo_guard(deleting=True)
     m = s.get(Memory, mem_id) or _404()
     s.delete(m)
     s.commit()

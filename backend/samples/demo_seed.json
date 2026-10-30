@@ -1,0 +1,170 @@
+{
+ "person": {
+  "name": "Nalongo Namubiru",
+  "relationship": "Jjajja (sample story for the demo)",
+  "years": "",
+  "about": "An invented elder. Her story was written to test Ebyafaayo; it is not a real family history."
+ },
+ "transcript_file": "sample_story_lug.txt",
+ "memory": {
+  "title": "Nalongo Namubiru's Story",
+  "generation_seconds": 171.4,
+  "data": {
+   "title": "Nalongo Namubiru's Story",
+   "luganda_text": "Nze Nalongo Namubiru. Nazaalibwa mu Masaka mu mwaka gwa 1948. Taata wange yali ayitibwa Kizito, era yali mulimi wa mmwanyi. Maama wange Nakato yatusomesanga engero buli kiro ku kyoto. Bwe nnali muwala muto twagenda e Kampala okulaba Kabaka. Taata yatugamba nti, \"Agali awamu ge galuma enyama.\" Mu biseera bya Amin twadduka ne tugenda ewa jjajja e Mpigi. Eyo gye nnasisinkana bba wange Ssemakula.",
+   "english_text": "I am Nalongo Namubiru. I was born in Masaka in 1948. My father was called Kizito, and he was a coffee farmer. My mother Nakato used to teach us folk tales every night by the fireplace. When I was a young girl, we went to Kampala to see the Kabaka. Father told us, \"Teeth that are together are the ones that bite the meat.\" During Amin's time we fled and went to my grandparent's home in Mpigi. That is where I met my husband Ssemakula.",
+   "changes_made": [],
+   "people": [
+    {
+     "name": "Nalongo Namubiru",
+     "relationship_to_speaker": "speaker",
+     "source_sentence": "Nze Nalongo Namubiru.",
+     "confidence": "clear",
+     "grounded": true
+    },
+    {
+     "name": "Kizito",
+     "relationship_to_speaker": "father",
+     "source_sentence": "Taata wange yali ayitibwa Kizito, era yali mulimi wa mmwanyi.",
+     "confidence": "clear",
+     "grounded": true
+    },
+    {
+     "name": "Nakato",
+     "relationship_to_speaker": "mother",
+     "source_sentence": "Maama wange Nakato yatusomesanga engero buli kiro ku kyoto.",
+     "confidence": "clear",
+     "grounded": true
+    },
+    {
+     "name": "Ssemakula",
+     "relationship_to_speaker": "husband",
+     "source_sentence": "Eyo gye nnasisinkana bba wange Ssemakula.",
+     "confidence": "clear",
+     "grounded": true
+    }
+   ],
+   "places": [
+    {
+     "name": "Masaka",
+     "source_sentence": "Nazaalibwa mu Masaka mu mwaka gwa 1948.",
+     "confidence": "clear",
+     "grounded": true
+    },
+    {
+     "name": "Kampala",
+     "source_sentence": "Bwe nnali muwala muto twagenda e Kampala okulaba Kabaka.",
+     "confidence": "clear",
+     "grounded": true
+    },
+    {
+     "name": "Mpigi",
+     "source_sentence": "Mu biseera bya Amin twadduka ne tugenda ewa jjajja e Mpigi.",
+     "confidence": "clear",
+     "grounded": true
+    }
+   ],
+   "time_periods": [
+    {
+     "description": "in the year 1948",
+     "source_sentence": "Nazaalibwa mu Masaka mu mwaka gwa 1948.",
+     "confidence": "clear",
+     "grounded": true
+    },
+    {
+     "description": "during Amin's time",
+     "source_sentence": "Mu biseera bya Amin twadduka ne tugenda ewa jjajja e Mpigi.",
+     "confidence": "clear",
+     "grounded": true
+    }
+   ],
+   "clan": null,
+   "totem": null,
+   "proverbs": [
+    {
+     "luganda": "Agali awamu ge galuma enyama.",
+     "english": "Teeth that are together bite the meat: people who work together succeed.",
+     "source_sentence": "Taata yatugamba nti, \"Agali awamu ge galuma enyama.\"",
+     "grounded": true
+    }
+   ],
+   "follow_up_questions": [
+    {
+     "luganda": "Jjajja, nti Kizito yali mulimi wa mmwanyi, nti mulimi wange yali w'okukola nnyo?",
+     "english": "Grandfather, since Kizito was a farmer of coffee, what was your farming like?",
+     "answered": false
+    },
+    {
+     "luganda": "Jjajja, engero buli kiro ku kyoto, nti engero oyo yali engeri ya okukola nnyo?",
+     "english": "Grandfather, the proverb told by mother, what was the meaning of that proverb?",
+     "answered": false
+    }
+   ],
+   "notes": [
+    "Demo: this sample story was written for testing. The family review was done by the developer: Gemma's English translation and the proverb's meaning were corrected by hand, and one question that made no sense was removed."
+   ],
+   "luganda_similarity": 1.0,
+   "retried": false
+  }
+ },
+ "photos": [
+  {
+   "file": "photos/living-room-kampala-1965.jpg",
+   "source": "https://commons.wikimedia.org/wiki/File:Kampala_-_Recreation-Community_Center-Gym-Theater_-_1965_-_DPLA_-_58a53ff39c7e3b71d750294bea6df118.jpg",
+   "description": "This is a black and white indoor photograph featuring a room with light-colored walls and dark wood flooring. There are no people visible in the photo. The room contains a large framed picture on the wall, a wooden bookshelf filled with books, and a small table with decorative items.",
+   "questions": [
+    {
+     "english": "Does this picture show any family members, and if so, who might be in it?",
+     "luganda": "",
+     "answered": false
+    },
+    {
+     "english": "Can you tell us anything about where this room is located or when this photograph was taken?",
+     "luganda": "",
+     "answered": false
+    },
+    {
+     "english": "Is there a story or memory associated with this particular picture that you remember?",
+     "luganda": "",
+     "answered": false
+    },
+    {
+     "english": "What is the story behind the artwork hanging on the wall?",
+     "luganda": "",
+     "answered": false
+    }
+   ],
+   "generation_seconds": 82.7,
+   "caption": "Test photo from Wikimedia Commons (public domain), not a family photo."
+  },
+  {
+   "file": "photos/portrait-1920s.jpg",
+   "source": "https://commons.wikimedia.org/wiki/File:Herbert_Gresford_Jones_in_the_1920s.jpg",
+   "description": "This is a black and white portrait featuring a single person. The individual is wearing a white shirt and a dark, draped garment around the neck. They are looking directly at the camera with a calm expression. The photo appears to be a formal portrait from an older album.",
+   "questions": [
+    {
+     "english": "Could you tell us a little about the person in this photograph?",
+     "luganda": "",
+     "answered": false
+    },
+    {
+     "english": "Do you remember where this picture was taken?",
+     "luganda": "",
+     "answered": false
+    },
+    {
+     "english": "Is there a story or memory associated with this particular moment?",
+     "luganda": "",
+     "answered": false
+    },
+    {
+     "english": "What was the occasion when this portrait was taken?",
+     "luganda": "",
+     "answered": false
+    }
+   ],
+   "generation_seconds": 53.5,
+   "caption": "Test photo from Wikimedia Commons (public domain), not a family photo."
+  }
+ ]
+}

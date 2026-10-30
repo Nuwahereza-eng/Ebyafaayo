@@ -69,3 +69,11 @@ Unit tests cover an invented uncle and an invented clan.
 **Photos: Gemma saw people who were not there.** A 1965 photo of an empty living room came back as "at least four people", then, after converting it to a colour JPEG, as "two individuals standing outdoors". Asked directly ("Describe this photo. How many people are in it?"), Gemma said there were none. With and without the JSON schema, our long prompt produced the same invention, so the schema was not the cause: the prompt's framing (a Ugandan family, gomesi, kanzu) was. A short, neutral prompt described both test photos correctly. Lesson recorded in the prompt file's caller: do not tell a small vision model what to expect.
 
 **Photo questions in English only.** Asked for Luganda, E2B looped ("nnyo nnyo nnyo ...") or wrote Kinyarwanda. A repeat penalty and higher temperature did not fix it. Gemma now writes English questions, and each has a field for the family's Luganda wording. A loop check (`clean_questions`) also blanks looping Luganda in story follow-up questions, with a note to the family, and drops duplicates.
+
+## Day 2, later: a public demo on Render
+
+**Why, and why it does not break the privacy promise.** Judges and readers should be able to try the app without installing it. The demo holds only the sample story and two public-domain test photos, and a banner asks visitors not to upload real family recordings. The "Offline" badge and the "nothing is sent to the internet" footer are replaced in demo mode, because on a server they would not be true.
+
+**One container, not three services.** Ollama, the Temporal dev server and the app run in one Docker service (4 CPUs, 8 GB, no GPU on Render) and talk over 127.0.0.1, with a 10 GB persistent disk for Gemma, SQLite and Temporal's history. Separate services would need private networking and three disks for no benefit at this size. Gemma is pulled in the background on the first start, so the health check passes at once. The GPU libraries are deleted from the Ollama download, which removes most of its 1.5 GB.
+
+**Demo guards.** No deleting; uploads up to 15 MB; transcripts up to 3,000 characters; no new Gemma job while 3 are waiting. Tested in `tests/test_demo.py` and by running the image locally (built without Ollama, using the laptop's Ollama for Gemma).

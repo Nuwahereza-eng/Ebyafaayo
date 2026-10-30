@@ -1,0 +1,18 @@
+# Render Blueprint for the public demo: https://render.com/docs/blueprint-spec
+# One service runs Ollama (Gemma 4 E2B on CPU), a Temporal dev server and the app, with sample data.
+# Gemma needs about 5 GB of RAM, hence 8 GB. The disk keeps Gemma (4.6 GB) and the data across deploys.
+services:
+  - type: web
+    name: ebyafaayo-demo
+    runtime: docker
+    plan: 4c-8g
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      - key: EBYAFAAYO_DEMO
+        value: "1"
