@@ -1,0 +1,7 @@
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff !important; }
+  .page-break { break-before: page; }
+  .avoid-break { break-inside: avoid; }
+  @page { margin: 18mm 16mm; }
+}

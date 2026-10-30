@@ -1,0 +1,20 @@
+# Family data never goes into git
+data/
+models/
+*.db
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+frontend/dist/
+
+# Personal drafts (not part of the project)
+ebyafaayo-agent-prompt.md
+ebyafaayo-dev-post-draft.md
+
+.env
+.DS_Store

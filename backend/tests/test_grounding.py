@@ -1,0 +1,44 @@
+from app.grounding import ground
+from app.schemas import StructuredMemory
+
+TRANSCRIPT = (
+    "Nze Nalongo Namubiru. Nazaalibwa mu Masaka mu mwaka gwa 1948. "
+    "Taata wange yali ayitibwa Kizito, era yali mulimi wa mmwanyi."
+)
+
+
+def memory(**extra):
+    base = {"title": "t", "luganda_text": TRANSCRIPT, "english_text": "e"}
+    return StructuredMemory.model_validate({**base, **extra})
+
+
+def test_real_person_is_grounded_and_quote_is_exact():
+    m, _ = ground(memory(people=[{"name": "Kizito", "relationship_to_speaker": "father",
+        "source_sentence": "taata wange yali ayitibwa kizito era yali mulimi wa mmwanyi", "confidence": "clear"}]), TRANSCRIPT)
+    assert m.people[0].grounded is True
+    assert m.people[0].source_sentence == "Taata wange yali ayitibwa Kizito, era yali mulimi wa mmwanyi."
+
+
+def test_invented_person_is_flagged_unclear():
+    m, notes = ground(memory(people=[{"name": "Mukasa", "relationship_to_speaker": "uncle",
+        "source_sentence": "Kojja wange Mukasa yali mulungi.", "confidence": "clear"}]), TRANSCRIPT)
+    assert m.people[0].grounded is False
+    assert m.people[0].confidence == "unclear"
+    assert notes
+
+
+def test_name_not_in_a_real_sentence_is_flagged():
+    m, _ = ground(memory(people=[{"name": "Mukasa", "relationship_to_speaker": None,
+        "source_sentence": "Nazaalibwa mu Masaka mu mwaka gwa 1948.", "confidence": "clear"}]), TRANSCRIPT)
+    assert m.people[0].grounded is False
+
+
+def test_guessed_clan_is_removed():
+    m, notes = ground(memory(clan={"value": "Ngeye", "source_sentence": "Ndi wa kika kya Ngeye."}), TRANSCRIPT)
+    assert m.clan is None
+    assert any("clan" in n for n in notes)
+
+
+def test_unclear_clan_value_is_dropped():
+    m, _ = ground(memory(totem={"value": "unclear", "source_sentence": ""}), TRANSCRIPT)
+    assert m.totem is None
